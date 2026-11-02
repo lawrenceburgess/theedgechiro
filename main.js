@@ -224,24 +224,46 @@
     edgeCrop.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${S.toFixed(4)})`;
   }
 
-  // The rest of the logo (spine + "CHIROPRACTIC") fades out on the canvas
-  // while a black curtain — initially covering the whole stage — slides
-  // its bottom edge up to the navbar's height, "sticking" there and
-  // revealing the deep blue stage background as it recedes.
+  // The rest of the logo (spine + "CHIROPRACTIC") fades out while a black
+  // curtain — initially covering the whole stage — slides its bottom edge
+  // up to the navbar's height, "sticking" there and revealing the deep blue
+  // stage background as it recedes. The canvas renders ABOVE the curtain
+  // (see .pin-section's z-index) so the fading logo is visible against the
+  // still-black curtain as it passes — but it must never appear sitting on
+  // the already-revealed blue. Masking the canvas to the exact same edge as
+  // the curtain, with a soft feather right at that line, keeps the two in
+  // perfect lockstep: a gentle dissolve exactly where the wipe is, and
+  // nothing left behind once it's passed.
+  const MASK_FEATHER_PX = 110;
   function updateNav(p) {
     const span = 1 - REVEAL_PHASE_END;
     const navT = span > 0 ? clamp01((p - REVEAL_PHASE_END) / span) : (p >= 1 ? 1 : 0);
     const inNavbarPhase = p >= REVEAL_PHASE_END;
 
-    // The curtain covers this content (bottom-up) until roughly navT 0.35-0.77,
-    // so the fade starts after it's first uncovered and finishes well after
-    // the curtain has fully passed — otherwise it's invisible the whole time.
-    canvas.style.opacity = String(1 - clamp01((navT - 0.3) / 0.65));
     updateEdgeCrop(p);
 
     stage.style.backgroundColor = inNavbarPhase ? `rgb(${BG_DEEP.join(", ")})` : "";
     const navHeightPx = parseFloat(getComputedStyle(siteNav).height) || 72;
-    navCurtain.style.height = inNavbarPhase ? `${lerp(window.innerHeight, navHeightPx, navT)}px` : "0px";
+    const curtainHeightPx = inNavbarPhase ? lerp(window.innerHeight, navHeightPx, navT) : window.innerHeight;
+    navCurtain.style.height = inNavbarPhase ? `${curtainHeightPx}px` : "0px";
+
+    if (!inNavbarPhase) {
+      canvas.style.maskImage = "";
+      canvas.style.webkitMaskImage = "";
+    } else if (curtainHeightPx <= MASK_FEATHER_PX) {
+      // Too close to the navbar's own height for the feather math below to
+      // make sense (it would let a sliver bleed through near y=0) — by this
+      // point the dissolve has already fully played out higher up, so just
+      // hide the canvas outright.
+      canvas.style.maskImage = "linear-gradient(transparent, transparent)";
+      canvas.style.webkitMaskImage = "linear-gradient(transparent, transparent)";
+    } else {
+      const edge = curtainHeightPx;
+      const mask = `linear-gradient(to bottom, #000 0, #000 ${edge - MASK_FEATHER_PX}px, transparent ${edge}px, transparent 100%)`;
+      canvas.style.maskImage = mask;
+      canvas.style.webkitMaskImage = mask;
+    }
+
     siteNav.style.setProperty("--nav-line", String(clamp01((navT - 0.85) / 0.15) * 0.14));
 
     const actionsOpacity = clamp01((navT - 0.45) / 0.4);

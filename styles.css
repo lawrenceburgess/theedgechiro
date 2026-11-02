@@ -140,7 +140,7 @@ html, body {
   top: var(--nav-h);
   left: 0;
   right: 0;
-  z-index: 39;
+  z-index: 42;
   background: #0a0a0a;
   border-bottom: 1px solid rgba(255, 255, 255, .1);
   padding: 28px 24px;
@@ -164,6 +164,7 @@ html, body {
 
 .pin-section {
   position: relative;
+  z-index: 39; /* above .nav-curtain(38) so the fading logo shows against it */
   background: var(--bg);
 }
 
