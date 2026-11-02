@@ -5,7 +5,12 @@
   const PIN_VH_MULTIPLIER = 4.5; // screen heights spent playing the 121 frames
   const REVEAL_VH_MULTIPLIER = 1.4; // extra screen heights spent shrinking to reveal the full wordmark
   const FRAME_PHASE_SHARE = PIN_VH_MULTIPLIER / (PIN_VH_MULTIPLIER + REVEAL_VH_MULTIPLIER);
-  const REVEAL_SHRINK_TO = 0.7;
+  // On a portrait screen the cover-fit image already fills the canvas
+  // height exactly (zero slack) when this phase starts, so shrinking to
+  // 0.7 trims height by only ~15% — real, but much less visible than the
+  // width's crop-to-fully-revealed change. Shrinking further makes both
+  // axes visibly pull back together.
+  const REVEAL_SHRINK_TO = 0.45;
   const LOAD_CONCURRENCY = 6;
 
   // Copy fade windows as [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd],
