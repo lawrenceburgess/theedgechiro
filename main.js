@@ -2,19 +2,19 @@
   const FRAME_COUNT = 121;
   const DESKTOP_DIR = "frames/desktop";
   const MOBILE_DIR = "frames/mobile";
-  const PIN_VH_MULTIPLIER = 4.5;
+  const PIN_VH_MULTIPLIER = 4.5; // screen heights spent playing the 121 frames
+  const REVEAL_VH_MULTIPLIER = 1.4; // extra screen heights spent shrinking to reveal the full wordmark
+  const FRAME_PHASE_SHARE = PIN_VH_MULTIPLIER / (PIN_VH_MULTIPLIER + REVEAL_VH_MULTIPLIER);
+  const REVEAL_SHRINK_TO = 0.7;
   const LOAD_CONCURRENCY = 6;
 
-  // The baked-in wordmark isn't static in the mobile frames: the shot pulls
-  // back through the final ~25 frames, so the text band drifts upward and
-  // shrinks. These are measured (progress, top%, bottom%) checkpoints for
-  // that band; updateWordmarkBand() interpolates between them every frame.
-  const WORDMARK_KEYFRAMES = [
-    [0.80, 0.80, 1.00],
-    [0.855, 0.805, 0.90],
-    [0.872, 0.785, 0.885],
-    [0.940, 0.73, 0.82],
-    [1.00, 0.635, 0.715],
+  // Copy fade windows as [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd],
+  // expressed as a fraction of the frame-playback phase (not the whole pin).
+  const HERO_EXIT_END = 0.05;
+  const LINE_WINDOWS = [
+    [0.03, 0.10, 0.22, 0.30],
+    [0.36, 0.44, 0.56, 0.64],
+    [0.66, 0.74, 0.86, 0.94],
   ];
 
   const canvas = document.getElementById("spine-canvas");
@@ -24,11 +24,13 @@
   const progressBar = document.getElementById("scroll-progress");
   const loadingEl = document.getElementById("loading-indicator");
   const lines = Array.from(document.querySelectorAll(".copy .line"));
-  const wordmarkMask = document.getElementById("wordmark-mask");
-  const mobileWordmark = document.getElementById("mobile-wordmark");
+  const heroIntro = document.getElementById("hero-intro");
+  const heroTitle = document.querySelector(".hero-title");
+  const heroHint = document.getElementById("hero-hint");
 
   const orientationQuery = window.matchMedia("(orientation: portrait)");
   const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const reducedMotion = reducedMotionQuery.matches;
 
   const seq = {
     dir: null,
@@ -37,6 +39,8 @@
     currentIndex: -1,
     loadedCount: 0,
   };
+
+  let revealImage = null;
 
   function frameSrc(dir, i) {
     return `${dir}/frame_${String(i + 1).padStart(4, "0")}.webp`;
@@ -54,9 +58,11 @@
     if (canvas.height !== h) canvas.height = h;
   }
 
-  function drawCover(img) {
+  // object-fit: cover math, with an extra `shrink` factor (<1) that pulls the
+  // image in further than cover would, exposing more of its original width.
+  function drawCoverShrink(img, shrink) {
     const cw = canvas.width, ch = canvas.height;
-    const s = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+    const s = Math.max(cw / img.naturalWidth, ch / img.naturalHeight) * shrink;
     const w = img.naturalWidth * s, h = img.naturalHeight * s;
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, cw, ch);
@@ -77,12 +83,51 @@
     return -1;
   }
 
+  // Frame 121's wordmark is cropped on the mobile asset (it's a narrow
+  // center strip of the source footage). Rather than mask/overlay it, the
+  // reveal phase switches to the uncropped desktop frame and shrinks the
+  // cover-fit scale below 1, which pulls the previously-cropped edges (and
+  // the full wordmark) back into view.
+  function loadRevealImage() {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => renderAtProgress(currentScrollProgress());
+    img.src = frameSrc(DESKTOP_DIR, FRAME_COUNT - 1);
+    revealImage = img;
+  }
+
   function renderAtProgress(p) {
-    const target = Math.round(p * (FRAME_COUNT - 1));
-    const idx = nearestLoaded(target);
-    if (idx === -1 || idx === seq.currentIndex) return;
-    drawCover(seq.images[idx]);
-    seq.currentIndex = idx;
+    if (p < FRAME_PHASE_SHARE) {
+      const target = Math.round((p / FRAME_PHASE_SHARE) * (FRAME_COUNT - 1));
+      const idx = nearestLoaded(target);
+      if (idx === -1 || idx === seq.currentIndex) return;
+      drawCoverShrink(seq.images[idx], 1);
+      seq.currentIndex = idx;
+    } else {
+      const t = FRAME_PHASE_SHARE < 1 ? (p - FRAME_PHASE_SHARE) / (1 - FRAME_PHASE_SHARE) : 1;
+      const shrink = 1 - (1 - REVEAL_SHRINK_TO) * Math.min(1, Math.max(0, t));
+      const img = isReady(revealImage) ? revealImage : seq.images[nearestLoaded(FRAME_COUNT - 1)];
+      if (!img) return;
+      drawCoverShrink(img, shrink);
+      seq.currentIndex = -2; // always redraw in the reveal phase; shrink changes continuously
+    }
+  }
+
+  function triWindow(p, a, b, c, d) {
+    if (p <= a || p >= d) return 0;
+    if (p < b) return (p - a) / (b - a);
+    if (p < c) return 1;
+    return 1 - (p - c) / (d - c);
+  }
+
+  function updateCopy(p) {
+    const heroOpacity = 1 - Math.min(1, p / (HERO_EXIT_END * FRAME_PHASE_SHARE));
+    heroIntro.style.opacity = String(heroOpacity);
+
+    lines.forEach((el, i) => {
+      const [a, b, c, d] = LINE_WINDOWS[i].map((v) => v * FRAME_PHASE_SHARE);
+      el.style.opacity = String(triWindow(p, a, b, c, d));
+    });
   }
 
   function updateLoadingLabel() {
@@ -128,31 +173,6 @@
     updateLoadingLabel();
   }
 
-  function updateWordmarkBand(progress) {
-    if (!orientationQuery.matches) return;
-    const kf = WORDMARK_KEYFRAMES;
-    let top, bottom;
-    if (progress <= kf[0][0]) {
-      [, top, bottom] = kf[0];
-    } else if (progress >= kf[kf.length - 1][0]) {
-      [, top, bottom] = kf[kf.length - 1];
-    } else {
-      let a = kf[0], b = kf[kf.length - 1];
-      for (let i = 0; i < kf.length - 1; i++) {
-        if (progress >= kf[i][0] && progress <= kf[i + 1][0]) { a = kf[i]; b = kf[i + 1]; break; }
-      }
-      const t = (progress - a[0]) / (b[0] - a[0]);
-      top = a[1] + (b[1] - a[1]) * t;
-      bottom = a[2] + (b[2] - a[2]) * t;
-    }
-    const topPct = `${(top * 100).toFixed(2)}%`;
-    const heightPct = `${((bottom - top) * 100).toFixed(2)}%`;
-    wordmarkMask.style.top = topPct;
-    wordmarkMask.style.height = heightPct;
-    mobileWordmark.style.top = topPct;
-    mobileWordmark.style.height = heightPct;
-  }
-
   let scrollTriggerInstance = null;
   function currentScrollProgress() {
     return scrollTriggerInstance ? scrollTriggerInstance.progress : 0;
@@ -165,33 +185,37 @@
     }
   }
 
-  const reducedMotion = reducedMotionQuery.matches;
+  function playHeroEntrance() {
+    if (reducedMotion) {
+      gsap.set(heroTitle, { opacity: 1, scale: 1, filter: "blur(0px)" });
+      gsap.set(heroHint, { opacity: 1, y: 0 });
+      return;
+    }
+    gsap.set(heroTitle, { opacity: 0, scale: 4.5, filter: "blur(32px)" });
+    gsap.set(heroHint, { opacity: 0, y: 12 });
+    gsap.timeline({ delay: 0.15 })
+      .to(heroTitle, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 1.4, ease: "power4.out" })
+      .to(heroHint, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, "-=0.35");
+  }
 
   function initStaticFallback() {
     sizeCanvas();
-    const dir = pickDir();
-    seq.dir = dir;
-    seq.images = new Array(FRAME_COUNT);
     const img = new Image();
     img.decoding = "async";
     img.onload = () => {
       sizeCanvas();
-      drawCover(img);
+      drawCoverShrink(img, REVEAL_SHRINK_TO);
       loadingEl.remove();
     };
-    img.src = frameSrc(dir, FRAME_COUNT - 1);
-    seq.images[FRAME_COUNT - 1] = img;
-
-    lines.forEach((l, i) => { l.style.opacity = i === lines.length - 1 ? "1" : "0"; });
-    if (orientationQuery.matches) {
-      wordmarkMask.style.opacity = "1";
-      mobileWordmark.style.opacity = "1";
-    }
+    img.src = frameSrc(DESKTOP_DIR, FRAME_COUNT - 1);
+    heroIntro.style.opacity = "0";
+    lines.forEach((l) => { l.style.opacity = "0"; });
   }
 
   function initAnimated() {
     sizeCanvas();
     loadSequence(pickDir());
+    loadRevealImage();
 
     gsap.registerPlugin(ScrollTrigger);
 
@@ -200,38 +224,25 @@
     gsap.ticker.add((time) => lenis.raf(time * 1000));
     gsap.ticker.lagSmoothing(0);
 
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: pinSection,
-        start: "top top",
-        end: () => `+=${window.innerHeight * PIN_VH_MULTIPLIER}`,
-        scrub: true,
-        pin: true,
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
-        onUpdate: (self) => {
-          progressBar.style.width = `${self.progress * 100}%`;
-          renderAtProgress(self.progress);
-          updateWordmarkBand(self.progress);
-        },
-        onRefresh: (self) => {
-          scrollTriggerInstance = self;
-        },
+    const totalVh = PIN_VH_MULTIPLIER + REVEAL_VH_MULTIPLIER;
+    const st = ScrollTrigger.create({
+      trigger: pinSection,
+      start: "top top",
+      end: () => `+=${window.innerHeight * totalVh}`,
+      scrub: true,
+      pin: true,
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
+      onUpdate: (self) => {
+        progressBar.style.width = `${self.progress * 100}%`;
+        renderAtProgress(self.progress);
+        updateCopy(self.progress);
+      },
+      onRefresh: (self) => {
+        scrollTriggerInstance = self;
       },
     });
-    scrollTriggerInstance = tl.scrollTrigger;
-
-    tl.to(lines[0], { opacity: 1, duration: 0.1 }, 0.04)
-      .to(lines[0], { opacity: 0, duration: 0.08 }, 0.22)
-      .to(lines[1], { opacity: 1, duration: 0.1 }, 0.38)
-      .to(lines[1], { opacity: 0, duration: 0.08 }, 0.56)
-      .to(lines[2], { opacity: 1, duration: 0.1 }, 0.64)
-      .to(lines[2], { opacity: 0, duration: 0.08 }, 0.78)
-      .to([wordmarkMask, mobileWordmark], { opacity: 1, duration: 0.12 }, 0.78)
-      // No-op tween pinning the timeline's total duration to exactly 1, so
-      // the position labels above (0.04 ... 0.9) line up 1:1 with scroll
-      // progress instead of being rescaled against whatever the last label is.
-      .to({}, { duration: 0.001 }, 1);
+    scrollTriggerInstance = st;
 
     orientationQuery.addEventListener("change", () => {
       refreshOrientation();
@@ -251,6 +262,8 @@
       });
     });
   }
+
+  playHeroEntrance();
 
   if (reducedMotion) {
     initStaticFallback();

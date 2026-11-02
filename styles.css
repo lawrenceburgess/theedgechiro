@@ -13,7 +13,7 @@ html, body {
   overflow-x: hidden;
 }
 
-.intro, .outro {
+.outro {
   min-height: 100svh;
   display: grid;
   place-items: center;
@@ -22,9 +22,8 @@ html, body {
   background: var(--bg);
 }
 
-.intro p, .outro p { color: var(--muted); margin-top: 14px; font-size: clamp(.9rem, 2vw, 1.05rem); }
-.intro h1, .outro h2 { font-weight: 300; letter-spacing: .06em; font-size: clamp(1.8rem, 4.5vw, 3.2rem); }
-.intro .hint { margin-top: 48px; font-size: .75rem; letter-spacing: .3em; text-transform: uppercase; color: var(--muted); animation: bob 2.2s ease-in-out infinite; }
+.outro p { color: var(--muted); margin-top: 14px; font-size: clamp(.9rem, 2vw, 1.05rem); }
+.outro h2 { font-family: "Jost", "Helvetica Neue", Arial, sans-serif; font-weight: 400; letter-spacing: .04em; font-size: clamp(1.8rem, 4.5vw, 3.2rem); }
 
 @keyframes bob {
   0%, 100% { transform: translateY(0); opacity: .5; }
@@ -52,6 +51,39 @@ html, body {
   height: 100%;
 }
 
+/* Hero headline, shown over frame 1 before any scrolling happens. */
+.hero-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 28px;
+  pointer-events: none;
+}
+
+.hero-title {
+  font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  font-size: clamp(1.5rem, 5.6vw, 4rem);
+  letter-spacing: .01em;
+  line-height: 1.22;
+  max-width: 17ch;
+  text-shadow: 0 2px 28px rgba(0, 0, 0, .6);
+}
+
+.hero-hint {
+  margin-top: 44px;
+  font-size: .72rem;
+  letter-spacing: .32em;
+  text-transform: uppercase;
+  color: var(--muted);
+  animation: bob 2.2s ease-in-out infinite;
+}
+
 .copy {
   position: absolute;
   inset: 0;
@@ -65,64 +97,13 @@ html, body {
   position: absolute;
   opacity: 0;
   text-align: center;
-  font-weight: 300;
-  letter-spacing: .02em;
-  font-size: clamp(1.6rem, 4.4vw, 3.4rem);
+  font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: .01em;
+  font-size: clamp(1.8rem, 5vw, 3.8rem);
   line-height: 1.25;
   padding: 0 28px;
   text-shadow: 0 2px 24px rgba(0,0,0,.6);
-}
-
-/* Baked-in wordmark on the mobile frames gets cropped at the phone-strip
-   edges; on portrait screens we mask that band and overlay real text. */
-.wordmark-mask {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 63.5%;
-  height: 8%;
-  background: var(--bg);
-  opacity: 0;
-  z-index: 3;
-  display: none;
-  pointer-events: none;
-}
-
-.mobile-wordmark {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 63.5%;
-  height: 8%;
-  z-index: 4;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.mobile-wordmark .wm-main {
-  display: block;
-  font-size: clamp(1.4rem, 6vw, 2rem);
-  letter-spacing: .12em;
-  font-weight: 500;
-}
-
-.mobile-wordmark .wm-sub {
-  display: block;
-  margin-top: 6px;
-  font-size: clamp(.9rem, 3.6vw, 1.2rem);
-  letter-spacing: .22em;
-  font-weight: 300;
-  color: var(--muted);
-}
-
-@media (orientation: portrait) {
-  .wordmark-mask { display: block; }
-  .mobile-wordmark { display: flex; }
 }
 
 .loading-indicator {
