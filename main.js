@@ -8,16 +8,18 @@
   const TOTAL_VH = PIN_VH_MULTIPLIER + REVEAL_VH_MULTIPLIER + NAVBAR_VH_MULTIPLIER;
   const FRAME_PHASE_SHARE = PIN_VH_MULTIPLIER / TOTAL_VH;
   const REVEAL_PHASE_END = (PIN_VH_MULTIPLIER + REVEAL_VH_MULTIPLIER) / TOTAL_VH;
-  // On a portrait screen the cover-fit image already fills the canvas
-  // height exactly (zero slack) when this phase starts, so shrinking to
-  // 0.7 trims height by only ~15% — real, but much less visible than the
-  // width's crop-to-fully-revealed change. Shrinking further makes both
-  // axes visibly pull back together.
-  const REVEAL_SHRINK_TO = 0.45;
+  const REVEAL_SHRINK_TO = 0.85;
   const LOAD_CONCURRENCY = 6;
 
-  const NAV_FLY_START_SCALE = 3.2;
-  const BG_DEEP = [14, 22, 36]; // dark muted blue the stage fades to once the logo clears out
+  const BG_DEEP = [14, 22, 36]; // dark muted blue revealed as the black curtain slides up
+
+  // Pixel bounds of "THE EDGE" within frame_0121 desktop (2560x1440),
+  // measured directly off the baked wordmark — see the crop verification
+  // done while building this feature. DOCK_CROP_W is its on-screen width
+  // once docked in the navbar; height follows the crop's own aspect ratio.
+  const EDGE_CROP_RECT = { x: 890, y: 985, w: 325, h: 63 };
+  const DOCK_CROP_W = 108;
+  const DOCK_CROP_H = DOCK_CROP_W * (EDGE_CROP_RECT.h / EDGE_CROP_RECT.w);
 
   // Copy fade windows as [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd],
   // expressed as a fraction of the frame-playback phase (not the whole pin).
@@ -40,7 +42,9 @@
   const heroHint = document.getElementById("hero-hint");
 
   const siteNav = document.getElementById("site-nav");
-  const navWordmark = document.getElementById("nav-wordmark");
+  const navCurtain = document.getElementById("nav-curtain");
+  const edgeCrop = document.getElementById("edge-crop");
+  const edgeCropImg = edgeCrop.querySelector("img");
   const navActions = document.getElementById("nav-actions");
   const menuToggle = document.getElementById("menu-toggle");
   const navMenu = document.getElementById("nav-menu");
@@ -150,47 +154,92 @@
 
   const lerp = (a, b, t) => a + (b - a) * t;
   const clamp01 = (n) => Math.max(0, Math.min(1, n));
-  const lerpColor = (a, b, t) => `rgb(${Math.round(lerp(a[0], b[0], t))}, ${Math.round(lerp(a[1], b[1], t))}, ${Math.round(lerp(a[2], b[2], t))})`;
 
-  let navWordmarkBox = null;
-  function measureNavWordmark() {
-    navWordmarkBox = { w: navWordmark.offsetWidth, h: navWordmark.offsetHeight };
+  // One-time layout: size the crop box to its docked (navbar) size, and
+  // scale/offset the full-frame img inside it so EDGE_CROP_RECT lines up
+  // exactly with the box. From here on, only `transform` on .edge-crop
+  // itself changes — scaling this base layout up/down as a unit, exactly
+  // like a sprite crop.
+  function setupEdgeCrop() {
+    const k = DOCK_CROP_W / EDGE_CROP_RECT.w;
+    edgeCrop.style.width = `${DOCK_CROP_W}px`;
+    edgeCrop.style.height = `${DOCK_CROP_H}px`;
+    edgeCropImg.style.width = `${2560 * k}px`;
+    edgeCropImg.style.height = `${1440 * k}px`;
+    edgeCropImg.style.left = `${-EDGE_CROP_RECT.x * k}px`;
+    edgeCropImg.style.top = `${-EDGE_CROP_RECT.y * k}px`;
   }
 
-  // "THE EDGE" flies from roughly where the shrunk logo sits (hero center)
-  // up to its permanent spot in the navbar, while the rest of the logo
-  // (spine + "CHIROPRACTIC") fades out and the stage tints toward the deep
-  // blue. navWordmark's left/top are fixed at its docked position always;
-  // the fly illusion comes entirely from `transform`.
+  // Where EDGE_CROP_RECT lands on screen if the full frame were drawn with
+  // drawCoverShrink(img, shrink) right now — i.e. exactly how the canvas
+  // itself is rendering that region. Used to keep the crop perfectly
+  // aligned with the canvas during the reveal phase, and as the fly
+  // animation's continuity anchor once the canvas starts fading.
+  function edgeCropRectForShrink(shrink) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cw = canvas.width, ch = canvas.height;
+    const s = Math.max(cw / 2560, ch / 1440) * shrink;
+    const sCss = s / dpr;
+    const ox = (cw - 2560 * s) / 2 / dpr;
+    const oy = (ch - 1440 * s) / 2 / dpr;
+    return {
+      x: ox + EDGE_CROP_RECT.x * sCss,
+      y: oy + EDGE_CROP_RECT.y * sCss,
+      w: EDGE_CROP_RECT.w * sCss,
+    };
+  }
+
+  function shrinkForProgress(p) {
+    const span = REVEAL_PHASE_END - FRAME_PHASE_SHARE;
+    const t = span > 0 ? (p - FRAME_PHASE_SHARE) / span : 1;
+    return 1 - (1 - REVEAL_SHRINK_TO) * clamp01(t);
+  }
+
+  function updateEdgeCrop(p) {
+    if (p < FRAME_PHASE_SHARE) {
+      edgeCrop.style.opacity = "0";
+      return;
+    }
+    edgeCrop.style.opacity = "1";
+
+    const dockLeft = parseFloat(getComputedStyle(edgeCrop).left) || 24;
+    const dockTop = parseFloat(getComputedStyle(edgeCrop).top) || 24;
+
+    let rect, S;
+    if (p <= REVEAL_PHASE_END) {
+      rect = edgeCropRectForShrink(shrinkForProgress(p));
+      S = rect.w / DOCK_CROP_W;
+    } else {
+      const boundary = edgeCropRectForShrink(REVEAL_SHRINK_TO);
+      const span = 1 - REVEAL_PHASE_END;
+      const navT = span > 0 ? clamp01((p - REVEAL_PHASE_END) / span) : 1;
+      S = lerp(boundary.w / DOCK_CROP_W, 1, navT);
+      rect = {
+        x: lerp(boundary.x, dockLeft, navT),
+        y: lerp(boundary.y, dockTop, navT),
+      };
+    }
+    const tx = rect.x - dockLeft;
+    const ty = rect.y - dockTop;
+    edgeCrop.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${S.toFixed(4)})`;
+  }
+
+  // The rest of the logo (spine + "CHIROPRACTIC") fades out on the canvas
+  // while a black curtain — initially covering the whole stage — slides
+  // its bottom edge up to the navbar's height, "sticking" there and
+  // revealing the deep blue stage background as it recedes.
   function updateNav(p) {
     const span = 1 - REVEAL_PHASE_END;
     const navT = span > 0 ? clamp01((p - REVEAL_PHASE_END) / span) : (p >= 1 ? 1 : 0);
+    const inNavbarPhase = p >= REVEAL_PHASE_END;
 
     canvas.style.opacity = String(1 - clamp01(navT / 0.3));
+    updateEdgeCrop(p);
 
-    const bgT = clamp01((navT - 0.1) / 0.65);
-    stage.style.backgroundColor = bgT <= 0 ? "" : lerpColor([0, 0, 0], BG_DEEP, bgT);
-
-    const navBg = clamp01(navT / 0.4);
-    siteNav.style.setProperty("--nav-bg", String(navBg));
-    siteNav.style.setProperty("--nav-line", String(navBg * 0.14));
-
-    const wmOpacity = clamp01(navT / 0.18);
-    navWordmark.style.opacity = String(wmOpacity);
-
-    if (!navWordmarkBox) measureNavWordmark();
-    if (navWordmarkBox && navWordmarkBox.w > 0) {
-      const dockLeft = parseFloat(getComputedStyle(navWordmark).left) || 24;
-      const dockTop = parseFloat(getComputedStyle(navWordmark).top) || 24;
-      const scale = lerp(NAV_FLY_START_SCALE, 1, navT);
-      const heroX = window.innerWidth / 2;
-      const heroY = window.innerHeight * 0.5;
-      const targetX = lerp(heroX, dockLeft + navWordmarkBox.w / 2, navT);
-      const targetY = lerp(heroY, dockTop + navWordmarkBox.h / 2, navT);
-      const curCenterX = dockLeft + (navWordmarkBox.w * scale) / 2;
-      const curCenterY = dockTop + (navWordmarkBox.h * scale) / 2;
-      navWordmark.style.transform = `translate(${(targetX - curCenterX).toFixed(1)}px, ${(targetY - curCenterY).toFixed(1)}px) scale(${scale.toFixed(3)})`;
-    }
+    stage.style.backgroundColor = inNavbarPhase ? `rgb(${BG_DEEP.join(", ")})` : "";
+    const navHeightPx = parseFloat(getComputedStyle(siteNav).height) || 72;
+    navCurtain.style.height = inNavbarPhase ? `${lerp(window.innerHeight, navHeightPx, navT)}px` : "0px";
+    siteNav.style.setProperty("--nav-line", String(clamp01((navT - 0.85) / 0.15) * 0.14));
 
     const actionsOpacity = clamp01((navT - 0.45) / 0.4);
     navActions.style.setProperty("--nav-actions", String(actionsOpacity));
@@ -281,11 +330,13 @@
 
     // No scroll-driven animation here, so the nav just appears already docked
     // alongside the static logo (stage background stays black — there's no
-    // scroll narrative here to motivate the fade to blue).
-    siteNav.style.setProperty("--nav-bg", "1");
+    // scroll narrative here to motivate the curtain's slide-up reveal).
+    setupEdgeCrop();
     siteNav.style.setProperty("--nav-line", "0.14");
-    navWordmark.style.opacity = "1";
-    navWordmark.style.transform = "translate(0px, 0px) scale(1)";
+    const navHeightPx = parseFloat(getComputedStyle(siteNav).height) || 72;
+    navCurtain.style.height = `${navHeightPx}px`;
+    edgeCrop.style.opacity = "1";
+    edgeCrop.style.transform = "translate(0px, 0px) scale(1)";
     navActions.style.setProperty("--nav-actions", "1");
     navActions.classList.add("ready");
   }
@@ -302,13 +353,7 @@
     gsap.ticker.add((time) => lenis.raf(time * 1000));
     gsap.ticker.lagSmoothing(0);
 
-    measureNavWordmark();
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => {
-        measureNavWordmark();
-        updateNav(currentScrollProgress());
-      });
-    }
+    setupEdgeCrop();
 
     const st = ScrollTrigger.create({
       trigger: pinSection,
@@ -343,7 +388,6 @@
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
       resizeRaf = requestAnimationFrame(() => {
         sizeCanvas();
-        measureNavWordmark();
         renderAtProgress(currentScrollProgress());
         updateNav(currentScrollProgress());
         ScrollTrigger.refresh();

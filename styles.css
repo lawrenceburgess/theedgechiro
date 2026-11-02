@@ -36,6 +36,20 @@ html, body {
 /* Lives outside .pin-section: GSAP's pin applies a transform to the pinned
    element, which would break position:fixed for anything nested inside it. */
 
+/* Solid black panel that starts covering the whole stage and shrinks to
+   exactly the navbar's height, sliding up to "become" the navbar and
+   reveal the blue stage background underneath as it goes. */
+.nav-curtain {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+  background: #000;
+  z-index: 38;
+  pointer-events: none;
+}
+
 .site-nav {
   position: fixed;
   inset: 0 0 auto 0;
@@ -45,29 +59,33 @@ html, body {
   align-items: center;
   justify-content: flex-end;
   padding: 0 24px;
-  background: #000;
-  opacity: var(--nav-bg, 0);
   border-bottom: 1px solid rgba(255, 255, 255, var(--nav-line, 0));
 }
 
-.nav-wordmark {
+/* A direct crop of "THE EDGE" out of the final frame — the actual baked
+   pixels, not separately-rendered text — so it can fly to the navbar
+   while the rest of the logo (spine + "CHIROPRACTIC") fades away. Base
+   width/height/img offsets are set once in JS to frame the crop; only
+   `transform` (scale + translate) changes per scroll frame. */
+.edge-crop {
   position: fixed;
   left: 24px;
-  top: 24px;
-  font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
-  font-weight: 500;
-  font-size: 1.05rem;
-  letter-spacing: .16em;
-  color: var(--fg);
-  text-decoration: none;
-  white-space: nowrap;
+  top: 25px;
+  display: block;
+  overflow: hidden;
   transform-origin: top left;
   opacity: 0;
   z-index: 41;
 }
 
+.edge-crop img {
+  position: absolute;
+  display: block;
+  max-width: none;
+}
+
 @media (min-width: 700px) {
-  .nav-wordmark { left: 48px; }
+  .edge-crop { left: 48px; }
 }
 
 .nav-actions {
