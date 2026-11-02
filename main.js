@@ -212,8 +212,9 @@
       drawCoverShrink(img, REVEAL_SHRINK_TO);
       loadingEl.remove();
     };
+    img.onerror = () => loadingEl.remove();
     img.src = frameSrc(DESKTOP_DIR, FRAME_COUNT - 1);
-    heroIntro.style.opacity = "0";
+    heroIntro.classList.add("is-static");
     lines.forEach((l) => { l.style.opacity = "0"; });
   }
 

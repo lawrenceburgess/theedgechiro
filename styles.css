@@ -84,6 +84,17 @@ html, body {
   animation: bob 2.2s ease-in-out infinite;
 }
 
+/* prefers-reduced-motion: the spine logo sits static and centered, so
+   push the headline up into its own clear band instead of overlapping it. */
+.hero-intro.is-static {
+  justify-content: flex-start;
+  padding-top: 10svh;
+}
+
+.hero-intro.is-static .hero-hint {
+  display: none;
+}
+
 .copy {
   position: absolute;
   inset: 0;
