@@ -1,0 +1,153 @@
+:root {
+  --bg: #000;
+  --fg: #f4f4f2;
+  --muted: #9a9a9a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Helvetica Neue", Arial, system-ui, -apple-system, "Segoe UI", sans-serif;
+  overflow-x: hidden;
+}
+
+.intro, .outro {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0 24px;
+  background: var(--bg);
+}
+
+.intro p, .outro p { color: var(--muted); margin-top: 14px; font-size: clamp(.9rem, 2vw, 1.05rem); }
+.intro h1, .outro h2 { font-weight: 300; letter-spacing: .06em; font-size: clamp(1.8rem, 4.5vw, 3.2rem); }
+.intro .hint { margin-top: 48px; font-size: .75rem; letter-spacing: .3em; text-transform: uppercase; color: var(--muted); animation: bob 2.2s ease-in-out infinite; }
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); opacity: .5; }
+  50% { transform: translateY(8px); opacity: 1; }
+}
+
+/* ---------- Pinned spine sequence ---------- */
+
+.pin-section {
+  position: relative;
+  background: var(--bg);
+}
+
+.pin-stage {
+  position: relative;
+  height: 100svh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.pin-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.copy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.copy .line {
+  position: absolute;
+  opacity: 0;
+  text-align: center;
+  font-weight: 300;
+  letter-spacing: .02em;
+  font-size: clamp(1.6rem, 4.4vw, 3.4rem);
+  line-height: 1.25;
+  padding: 0 28px;
+  text-shadow: 0 2px 24px rgba(0,0,0,.6);
+}
+
+/* Baked-in wordmark on the mobile frames gets cropped at the phone-strip
+   edges; on portrait screens we mask that band and overlay real text. */
+.wordmark-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 63.5%;
+  height: 8%;
+  background: var(--bg);
+  opacity: 0;
+  z-index: 3;
+  display: none;
+  pointer-events: none;
+}
+
+.mobile-wordmark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 63.5%;
+  height: 8%;
+  z-index: 4;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mobile-wordmark .wm-main {
+  display: block;
+  font-size: clamp(1.4rem, 6vw, 2rem);
+  letter-spacing: .12em;
+  font-weight: 500;
+}
+
+.mobile-wordmark .wm-sub {
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(.9rem, 3.6vw, 1.2rem);
+  letter-spacing: .22em;
+  font-weight: 300;
+  color: var(--muted);
+}
+
+@media (orientation: portrait) {
+  .wordmark-mask { display: block; }
+  .mobile-wordmark { display: flex; }
+}
+
+.loading-indicator {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .08em;
+  z-index: 20;
+  transition: opacity .4s ease;
+}
+
+.scroll-progress {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 2px;
+  background: #fff;
+  width: 0%;
+  z-index: 30;
+  transform-origin: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress { display: none; }
+}

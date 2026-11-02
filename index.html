@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Edge Chiropractic</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="scroll-progress" id="scroll-progress"></div>
+
+  <section class="intro">
+    <div>
+      <h1>The Edge Chiropractic</h1>
+      <p>Scroll to see your spine, reimagined.</p>
+      <div class="hint">Scroll</div>
+    </div>
+  </section>
+
+  <section class="pin-section" id="pin-section">
+    <div class="pin-stage" id="pin-stage">
+      <canvas id="spine-canvas"></canvas>
+
+      <div class="copy">
+        <h2 class="line">Precision, from the first adjustment.</h2>
+        <h2 class="line">Every curve. Every nerve. Every patient.</h2>
+        <h2 class="line">This is spinal care, re-engineered.</h2>
+      </div>
+
+      <div class="wordmark-mask" id="wordmark-mask"></div>
+      <div class="mobile-wordmark" id="mobile-wordmark">
+        <span class="wm-main">THE EDGE</span>
+        <span class="wm-sub">CHIROPRACTIC</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="outro">
+    <div>
+      <h2>Book your first visit</h2>
+      <p>The rest of the site continues here.</p>
+    </div>
+  </section>
+
+  <div class="loading-indicator" id="loading-indicator">Loading 0/121</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.3.27/dist/lenis.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
