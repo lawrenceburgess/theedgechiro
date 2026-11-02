@@ -9,9 +9,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body id="top">
 
   <div class="scroll-progress" id="scroll-progress"></div>
+
+  <header class="site-nav" id="site-nav">
+    <a class="nav-wordmark" id="nav-wordmark" href="#top">THE EDGE</a>
+    <div class="nav-actions" id="nav-actions">
+      <button class="call-now" id="call-now" type="button">Call Now</button>
+      <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu">
+        <span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="nav-menu" id="nav-menu" aria-hidden="true">
+    <p>Menu coming soon.</p>
+  </div>
 
   <section class="pin-section" id="pin-section">
     <div class="pin-stage" id="pin-stage">

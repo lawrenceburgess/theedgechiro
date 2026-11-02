@@ -2,6 +2,8 @@
   --bg: #000;
   --fg: #f4f4f2;
   --muted: #9a9a9a;
+  --orange: #ff6a3d;
+  --nav-h: 72px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -28,6 +30,116 @@ html, body {
 @keyframes bob {
   0%, 100% { transform: translateY(0); opacity: .5; }
   50% { transform: translateY(8px); opacity: 1; }
+}
+
+/* ---------- Site navigation ---------- */
+/* Lives outside .pin-section: GSAP's pin applies a transform to the pinned
+   element, which would break position:fixed for anything nested inside it. */
+
+.site-nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--nav-h);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 24px;
+  background: #000;
+  opacity: var(--nav-bg, 0);
+  border-bottom: 1px solid rgba(255, 255, 255, var(--nav-line, 0));
+}
+
+.nav-wordmark {
+  position: fixed;
+  left: 24px;
+  top: 24px;
+  font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  font-size: 1.05rem;
+  letter-spacing: .16em;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+  transform-origin: top left;
+  opacity: 0;
+  z-index: 41;
+}
+
+@media (min-width: 700px) {
+  .nav-wordmark { left: 48px; }
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  opacity: var(--nav-actions, 0);
+  transform: translateY(calc((1 - var(--nav-actions, 0)) * -6px));
+  pointer-events: none;
+}
+
+.nav-actions.ready { pointer-events: auto; }
+
+.call-now {
+  background: var(--orange);
+  color: #1a0d04;
+  border: 0;
+  padding: 10px 18px;
+  font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: .78rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.menu-toggle {
+  width: 28px;
+  height: 32px;
+  border: 0;
+  background: none;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.menu-toggle span {
+  display: block;
+  height: 1px;
+  width: 26px;
+  background: var(--fg);
+  transition: transform .25s ease, opacity .25s ease;
+}
+
+.menu-toggle[aria-expanded="true"] span:first-child { transform: translateY(3.5px) rotate(45deg); }
+.menu-toggle[aria-expanded="true"] span:last-child { transform: translateY(-3.5px) rotate(-45deg); }
+
+.nav-menu {
+  position: fixed;
+  top: var(--nav-h);
+  left: 0;
+  right: 0;
+  z-index: 39;
+  background: #0a0a0a;
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+  padding: 28px 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: .9rem;
+  letter-spacing: .04em;
+  transform: translateY(-8px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s ease, transform .2s ease, visibility .2s;
+}
+
+.nav-menu.open {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
 }
 
 /* ---------- Pinned spine sequence ---------- */
