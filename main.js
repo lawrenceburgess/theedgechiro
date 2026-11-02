@@ -233,7 +233,10 @@
     const navT = span > 0 ? clamp01((p - REVEAL_PHASE_END) / span) : (p >= 1 ? 1 : 0);
     const inNavbarPhase = p >= REVEAL_PHASE_END;
 
-    canvas.style.opacity = String(1 - clamp01(navT / 0.3));
+    // The curtain covers this content (bottom-up) until roughly navT 0.35-0.77,
+    // so the fade starts after it's first uncovered and finishes well after
+    // the curtain has fully passed — otherwise it's invisible the whole time.
+    canvas.style.opacity = String(1 - clamp01((navT - 0.3) / 0.65));
     updateEdgeCrop(p);
 
     stage.style.backgroundColor = inNavbarPhase ? `rgb(${BG_DEEP.join(", ")})` : "";
