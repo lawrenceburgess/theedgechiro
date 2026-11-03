@@ -29,10 +29,17 @@ html, body {
 .outro h2 { font-family: "Jost", "Helvetica Neue", Arial, sans-serif; font-weight: 400; letter-spacing: .04em; font-size: clamp(1.8rem, 4.5vw, 3.2rem); }
 
 /* ---------- Meet Dr. Dunlap ---------- */
-/* Sits directly below the pinned hero and shares its exact curtain-reveal
-   blue (--navy), so the handoff from the scroll animation stays seamless
-   instead of cutting to black. */
+/* Shares the curtain-reveal blue (--navy) for a seamless handoff. GSAP's
+   pin leaves pin-section occupying one more full screen of static,
+   already-blue space after it unpins (it resumes normal flow at its own
+   natural height once the pinned scroll distance is used up) — a blank
+   screen you'd otherwise have to scroll through before any Dr. Dunlap
+   content appears. Pulling this section up by that same screen height
+   lets it paint directly over that dead space, so the content shows up
+   the moment the curtain finishes sliding into the navbar. */
 .dr-section {
+  position: relative;
+  margin-top: -100svh;
   background: var(--navy);
   padding: 96px 24px;
   display: flex;
