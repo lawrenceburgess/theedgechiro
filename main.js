@@ -269,40 +269,29 @@
   // wordmark) that flies toward the navbar using the exact same transform
   // math as .edge-crop (see flyTransform), so the whole thing moves as one
   // rigid piece instead of "THE EDGE" flying away from a logo left behind.
-  // A black curtain, initially covering the whole stage, slides its bottom
-  // edge up to the navbar's height, revealing the deep blue stage
-  // background as it recedes. full-logo-crop is masked to that exact same
-  // edge (with a soft feather right at the line) so spine + "CHIROPRACTIC"
-  // dissolve exactly where the wipe is and never show up sitting on the
-  // revealed blue — while edge-crop, unmasked, rides along on top and
-  // survives the whole trip.
-  const MASK_FEATHER_PX = 110;
-  function updateFullLogoCrop(p, navT, inNavbarPhase, curtainHeightPx) {
+  // spine + "CHIROPRACTIC" fade out via a plain opacity curve while it
+  // flies (FADE_END) — visible against the still-black curtain. The
+  // curtain itself doesn't start revealing blue until CURTAIN_START, safely
+  // after the fade is done, so the ghosted logo never ends up sitting on
+  // the revealed blue. (An earlier version tried to mask full-logo-crop to
+  // the curtain's exact pixel edge instead; that broke because the crop is
+  // small — ~220px tall locally — while the math solved for an edge
+  // position that routinely fell outside those bounds entirely, leaving it
+  // fully opaque for most of the flight.) edge-crop, with its own opacity
+  // fixed at 1 throughout, rides on top and survives the whole trip.
+  const FADE_END = 0.4;
+  const CURTAIN_START = 0.45;
+  function updateFullLogoCrop(navT, inNavbarPhase) {
     canvas.style.opacity = inNavbarPhase ? "0" : "1";
     if (!inNavbarPhase) {
       fullLogoCrop.style.opacity = "0";
       return;
     }
-    fullLogoCrop.style.opacity = "1";
+    fullLogoCrop.style.opacity = String(1 - clamp01(navT / FADE_END));
 
     const { left: dockLeft, top: dockTop } = dockAnchor(fullLogoCrop);
     const { scale, tx, ty } = flyTransform(FULL_LOGO_RECT, navT, dockLeft, dockTop);
     fullLogoCrop.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
-
-    // mask-image is positioned in the crop's own local (pre-transform)
-    // space, so the wipe line's local Y has to be solved backwards from
-    // where we want it to land on screen (curtainHeightPx) given the
-    // transform just applied above.
-    const localEdge = (curtainHeightPx - ty) / scale;
-    const localFeather = MASK_FEATHER_PX / scale;
-    if (localEdge <= localFeather) {
-      fullLogoCrop.style.maskImage = "linear-gradient(transparent, transparent)";
-      fullLogoCrop.style.webkitMaskImage = "linear-gradient(transparent, transparent)";
-    } else {
-      const mask = `linear-gradient(to bottom, #000 0, #000 ${(localEdge - localFeather).toFixed(1)}px, transparent ${localEdge.toFixed(1)}px, transparent 100%)`;
-      fullLogoCrop.style.maskImage = mask;
-      fullLogoCrop.style.webkitMaskImage = mask;
-    }
   }
 
   function updateNav(p) {
@@ -311,17 +300,17 @@
     const inNavbarPhase = p >= REVEAL_PHASE_END;
 
     updateEdgeCrop(p);
+    updateFullLogoCrop(navT, inNavbarPhase);
 
     stage.style.backgroundColor = inNavbarPhase ? `rgb(${BG_DEEP.join(", ")})` : "";
     const navHeightPx = parseFloat(getComputedStyle(siteNav).height) || 72;
-    const curtainHeightPx = inNavbarPhase ? lerp(window.innerHeight, navHeightPx, navT) : window.innerHeight;
+    const curtainT = clamp01((navT - CURTAIN_START) / (1 - CURTAIN_START));
+    const curtainHeightPx = inNavbarPhase ? lerp(window.innerHeight, navHeightPx, curtainT) : window.innerHeight;
     navCurtain.style.height = inNavbarPhase ? `${curtainHeightPx}px` : "0px";
 
-    updateFullLogoCrop(p, navT, inNavbarPhase, curtainHeightPx);
+    siteNav.style.setProperty("--nav-line", String(clamp01((navT - 0.92) / 0.08) * 0.14));
 
-    siteNav.style.setProperty("--nav-line", String(clamp01((navT - 0.85) / 0.15) * 0.14));
-
-    const actionsOpacity = clamp01((navT - 0.45) / 0.4);
+    const actionsOpacity = clamp01((navT - 0.55) / 0.35);
     navActions.style.setProperty("--nav-actions", String(actionsOpacity));
     navActions.classList.toggle("ready", actionsOpacity > 0.6);
   }
