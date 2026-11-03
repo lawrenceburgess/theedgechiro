@@ -61,18 +61,26 @@ html, body {
 }
 
 .dr-photo-frame {
+  position: relative;
   aspect-ratio: 4 / 5;
   overflow: hidden;
   border-radius: 6px;
   margin: 0 auto 28px;
 }
 
+/* Sized to the frame's width (not cover-cropped), so the full tall source
+   photo overflows below the frame; main.js pans it upward via `transform`
+   as the frame scrolls through the viewport (see setupDrParallax) — the
+   frame becomes a window the photo drifts past, rather than a static crop.
+   Untransformed, this already shows the same top-anchored crop as before,
+   so it degrades gracefully before JS runs and under reduced motion. */
 .dr-photo {
   display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top center;
+  height: auto;
 }
 
 .dr-credentials {

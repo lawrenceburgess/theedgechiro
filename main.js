@@ -54,6 +54,9 @@
   const menuToggle = document.getElementById("menu-toggle");
   const navMenu = document.getElementById("nav-menu");
 
+  const drPhotoFrame = document.querySelector(".dr-photo-frame");
+  const drPhoto = drPhotoFrame ? drPhotoFrame.querySelector("img") : null;
+
   const orientationQuery = window.matchMedia("(orientation: portrait)");
   const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   const reducedMotion = reducedMotionQuery.matches;
@@ -300,6 +303,38 @@
     navActions.classList.toggle("ready", actionsOpacity > 0.6);
   }
 
+  // How far the (uncropped-width) photo can pan before its bottom edge
+  // reaches the frame's bottom edge — i.e. the full vertical travel the
+  // source photo has to give once it's sized to the frame's width instead
+  // of cropped to its height.
+  function drPanRange() {
+    if (!drPhoto || !drPhotoFrame || !drPhoto.naturalWidth) return 0;
+    const renderedHeight = drPhotoFrame.clientWidth * (drPhoto.naturalHeight / drPhoto.naturalWidth);
+    return Math.max(0, renderedHeight - drPhotoFrame.clientHeight);
+  }
+
+  // Pans the photo from its top (same crop as a static top-anchored image)
+  // down to its bottom as the frame travels through the viewport, so the
+  // frame reads as a window the photo drifts past rather than a fixed crop.
+  function setupDrParallax() {
+    if (reducedMotion || !drPhoto || !drPhotoFrame) return;
+    const start = () => {
+      gsap.fromTo(drPhoto, { y: 0 }, {
+        y: () => -drPanRange(),
+        ease: "none",
+        scrollTrigger: {
+          trigger: drPhotoFrame,
+          start: "top bottom",
+          end: "bottom top",
+          scrub: true,
+          invalidateOnRefresh: true,
+        },
+      });
+    };
+    if (drPhoto.complete && drPhoto.naturalWidth) start();
+    else drPhoto.addEventListener("load", start, { once: true });
+  }
+
   function updateLoadingLabel() {
     if (seq.loadedCount >= FRAME_COUNT) {
       loadingEl.style.opacity = "0";
@@ -411,6 +446,7 @@
     gsap.ticker.lagSmoothing(0);
 
     setupLogoFly();
+    setupDrParallax();
 
     const st = ScrollTrigger.create({
       trigger: pinSection,
