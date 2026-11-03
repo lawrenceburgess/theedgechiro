@@ -18,13 +18,12 @@
   // done while building this feature. DOCK_CROP_W is its on-screen width
   // once docked in the navbar; height follows the crop's own aspect ratio.
   const EDGE_CROP_RECT = { x: 890, y: 985, w: 325, h: 63 };
-  const DOCK_CROP_W = 108;
-  const DOCK_CROP_H = DOCK_CROP_W * (EDGE_CROP_RECT.h / EDGE_CROP_RECT.w);
+  const DOCK_CROP_W = 108; // "THE EDGE"'s on-screen width once docked in the navbar
 
   // Pixel bounds of the whole logo (spine + full wordmark) in the same
-  // frame, similarly measured. Used so the whole thing can fly as one
-  // rigid piece (sharing EDGE_CROP_RECT's scale reference "k" below) while
-  // "THE EDGE" survives on top of it and everything else fades.
+  // frame, similarly measured. A single crop of this whole region flies to
+  // the navbar as one piece; a mask (see buildLogoMask) keeps EDGE_CROP_RECT
+  // always opaque within it while everything else fades.
   const FULL_LOGO_RECT = { x: 885, y: 385, w: 795, h: 665 };
 
   // Copy fade windows as [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd],
@@ -49,10 +48,8 @@
 
   const siteNav = document.getElementById("site-nav");
   const navCurtain = document.getElementById("nav-curtain");
-  const edgeCrop = document.getElementById("edge-crop");
-  const edgeCropImg = edgeCrop.querySelector("img");
-  const fullLogoCrop = document.getElementById("full-logo-crop");
-  const fullLogoCropImg = fullLogoCrop.querySelector("img");
+  const logoFly = document.getElementById("logo-fly");
+  const logoFlyImg = logoFly.querySelector("img");
   const navActions = document.getElementById("nav-actions");
   const menuToggle = document.getElementById("menu-toggle");
   const navMenu = document.getElementById("nav-menu");
@@ -168,37 +165,45 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const clamp01 = (n) => Math.max(0, Math.min(1, n));
 
-  // Both crops share this scale reference "k" (calibrated off the small
-  // navbar-docked size of EDGE_CROP_RECT), so a given on-screen width for
-  // either crop corresponds to the SAME underlying zoom level on the shared
-  // source image — which is what lets them move as one rigid piece using
-  // consistent math, even though they crop different regions.
+  // Calibrated so EDGE_CROP_RECT, at docked scale (1), renders at
+  // DOCK_CROP_W px wide — the reference zoom level for logo-fly's whole
+  // base layout.
   const CROP_K = DOCK_CROP_W / EDGE_CROP_RECT.w;
 
-  // One-time layout: size each crop box, and scale/offset the full-frame
-  // img inside it so its rect lines up exactly with the box. From here on,
-  // only `transform` on the crop element itself changes — scaling this base
-  // layout up/down as a unit, exactly like a sprite crop.
-  function setupCrop(el, img, rect) {
-    el.style.width = `${rect.w * CROP_K}px`;
-    el.style.height = `${rect.h * CROP_K}px`;
-    img.style.width = `${2560 * CROP_K}px`;
-    img.style.height = `${1440 * CROP_K}px`;
-    img.style.left = `${-rect.x * CROP_K}px`;
-    img.style.top = `${-rect.y * CROP_K}px`;
+  // "THE EDGE" sits well inside FULL_LOGO_RECT (below the spine, and not
+  // flush with its left edge), not at the crop's own top-left corner — so
+  // docking the *container* at the navbar position is not the same as
+  // docking *the text* there. This is how far "THE EDGE" sits from the
+  // container's top-left once laid out at CROP_K, used to pull the
+  // container's own anchor back by that amount so the text itself — not
+  // the container — ends up at (DOCK_LEFT, DOCK_TOP).
+  const EDGE_OFFSET_X = (EDGE_CROP_RECT.x - FULL_LOGO_RECT.x) * CROP_K;
+  const EDGE_OFFSET_Y = (EDGE_CROP_RECT.y - FULL_LOGO_RECT.y) * CROP_K;
+  const DOCK_TOP = 25;
+  const dockLeftForViewport = () => (window.innerWidth >= 700 ? 48 : 24);
+
+  // One-time (+ on resize) layout: size logo-fly to FULL_LOGO_RECT at
+  // CROP_K, scale/offset the full-frame img inside it so that rect lines up
+  // exactly with the box, and position the container so "THE EDGE" (not
+  // the container's own corner) lands at the navbar dock point. From here
+  // on, only `transform` (position/scale) and `mask-image` (which region
+  // fades) change per scroll frame.
+  function setupLogoFly() {
+    logoFly.style.width = `${FULL_LOGO_RECT.w * CROP_K}px`;
+    logoFly.style.height = `${FULL_LOGO_RECT.h * CROP_K}px`;
+    logoFlyImg.style.width = `${2560 * CROP_K}px`;
+    logoFlyImg.style.height = `${1440 * CROP_K}px`;
+    logoFlyImg.style.left = `${-FULL_LOGO_RECT.x * CROP_K}px`;
+    logoFlyImg.style.top = `${-FULL_LOGO_RECT.y * CROP_K}px`;
+    logoFly.style.left = `${dockLeftForViewport() - EDGE_OFFSET_X}px`;
+    logoFly.style.top = `${DOCK_TOP - EDGE_OFFSET_Y}px`;
   }
 
-  function setupCrops() {
-    setupCrop(edgeCrop, edgeCropImg, EDGE_CROP_RECT);
-    setupCrop(fullLogoCrop, fullLogoCropImg, FULL_LOGO_RECT);
-  }
-
-  // Where `rect` lands on screen if the full frame were drawn with
+  // Where FULL_LOGO_RECT lands on screen if the full frame were drawn with
   // drawCoverShrink(img, shrink) right now — i.e. exactly how the canvas
-  // itself is rendering that region. Used to keep a crop perfectly aligned
-  // with the canvas during the reveal phase, and as the fly animation's
-  // continuity anchor once the canvas hands off to the crops.
-  function cropRectForShrink(rect, shrink) {
+  // itself is rendering it. Used as the fly animation's continuity anchor
+  // (navT=0) once the canvas hands off to logo-fly.
+  function cropRectForShrink(shrink) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cw = canvas.width, ch = canvas.height;
     const s = Math.max(cw / 2560, ch / 1440) * shrink;
@@ -206,26 +211,19 @@
     const ox = (cw - 2560 * s) / 2 / dpr;
     const oy = (ch - 1440 * s) / 2 / dpr;
     return {
-      x: ox + rect.x * sCss,
-      y: oy + rect.y * sCss,
-      w: rect.w * sCss,
+      x: ox + FULL_LOGO_RECT.x * sCss,
+      y: oy + FULL_LOGO_RECT.y * sCss,
+      w: FULL_LOGO_RECT.w * sCss,
     };
   }
 
-  function shrinkForProgress(p) {
-    const span = REVEAL_PHASE_END - FRAME_PHASE_SHARE;
-    const t = span > 0 ? (p - FRAME_PHASE_SHARE) / span : 1;
-    return 1 - (1 - REVEAL_SHRINK_TO) * clamp01(t);
-  }
-
-  // The fly transform for a crop at a given navbar-phase progress: starts
-  // (navT=0) exactly matching how the canvas rendered `rect` at the reveal
-  // phase's final shrink, and ends (navT=1) fully docked (identity
-  // transform, since each crop's own base layout already *is* its docked
+  // navT=0 exactly matches how the canvas rendered FULL_LOGO_RECT at the
+  // reveal phase's final shrink; navT=1 is fully docked (identity
+  // transform, since logo-fly's own base layout already *is* its docked
   // appearance).
-  function flyTransform(rect, navT, dockLeft, dockTop) {
-    const boundary = cropRectForShrink(rect, REVEAL_SHRINK_TO);
-    const scaleFrom = boundary.w / (rect.w * CROP_K);
+  function flyTransform(navT, dockLeft, dockTop) {
+    const boundary = cropRectForShrink(REVEAL_SHRINK_TO);
+    const scaleFrom = boundary.w / (FULL_LOGO_RECT.w * CROP_K);
     const txFrom = boundary.x - dockLeft;
     const tyFrom = boundary.y - dockTop;
     return {
@@ -235,63 +233,51 @@
     };
   }
 
-  function dockAnchor(el) {
-    return {
-      left: parseFloat(getComputedStyle(el).left) || 24,
-      top: parseFloat(getComputedStyle(el).top) || 25,
-    };
+  // A mask built from two flat rects in logo-fly's own local (untransformed)
+  // coordinate space, so it's completely independent of the element's
+  // current transform or the curtain's screen position — no backward-
+  // solved coordinates to get wrong. The "THE EDGE" rect always stays at
+  // full opacity; the rect behind it covers the whole crop at `fadeOpacity`.
+  // White+fill-opacity gives the same effective mask value (luminance ×
+  // alpha) under either luminance- or alpha-based mask interpretation, so
+  // this renders consistently without needing to pick one.
+  function buildLogoMask(fadeOpacity) {
+    const w = FULL_LOGO_RECT.w * CROP_K, h = FULL_LOGO_RECT.h * CROP_K;
+    const ex = (EDGE_CROP_RECT.x - FULL_LOGO_RECT.x) * CROP_K;
+    const ey = (EDGE_CROP_RECT.y - FULL_LOGO_RECT.y) * CROP_K;
+    const ew = EDGE_CROP_RECT.w * CROP_K, eh = EDGE_CROP_RECT.h * CROP_K;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">`
+      + `<rect width="${w}" height="${h}" fill="#fff" fill-opacity="${fadeOpacity.toFixed(3)}"/>`
+      + `<rect x="${ex.toFixed(2)}" y="${ey.toFixed(2)}" width="${ew.toFixed(2)}" height="${eh.toFixed(2)}" fill="#fff"/>`
+      + `</svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
   }
 
-  function updateEdgeCrop(p) {
-    if (p < FRAME_PHASE_SHARE) {
-      edgeCrop.style.opacity = "0";
-      return;
-    }
-    edgeCrop.style.opacity = "1";
-    const { left: dockLeft, top: dockTop } = dockAnchor(edgeCrop);
-
-    let tx, ty, S;
-    if (p <= REVEAL_PHASE_END) {
-      const rect = cropRectForShrink(EDGE_CROP_RECT, shrinkForProgress(p));
-      S = rect.w / DOCK_CROP_W;
-      tx = rect.x - dockLeft;
-      ty = rect.y - dockTop;
-    } else {
-      const span = 1 - REVEAL_PHASE_END;
-      const navT = span > 0 ? clamp01((p - REVEAL_PHASE_END) / span) : 1;
-      ({ scale: S, tx, ty } = flyTransform(EDGE_CROP_RECT, navT, dockLeft, dockTop));
-    }
-    edgeCrop.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${S.toFixed(4)})`;
-  }
-
-  // Once the reveal phase ends, the canvas hands off entirely to
-  // .full-logo-crop — a tight crop of the whole logo (spine + full
-  // wordmark) that flies toward the navbar using the exact same transform
-  // math as .edge-crop (see flyTransform), so the whole thing moves as one
-  // rigid piece instead of "THE EDGE" flying away from a logo left behind.
-  // spine + "CHIROPRACTIC" fade out via a plain opacity curve while it
-  // flies (FADE_END) — visible against the still-black curtain. The
-  // curtain itself doesn't start revealing blue until CURTAIN_START, safely
-  // after the fade is done, so the ghosted logo never ends up sitting on
-  // the revealed blue. (An earlier version tried to mask full-logo-crop to
-  // the curtain's exact pixel edge instead; that broke because the crop is
-  // small — ~220px tall locally — while the math solved for an edge
-  // position that routinely fell outside those bounds entirely, leaving it
-  // fully opaque for most of the flight.) edge-crop, with its own opacity
-  // fixed at 1 throughout, rides on top and survives the whole trip.
+  // spine + "CHIROPRACTIC" fade out (via the mask above) over a plain navT
+  // curve while logo-fly flies — visible against the still-black curtain.
+  // The curtain itself doesn't start revealing blue until CURTAIN_START,
+  // safely after FADE_END, so the fading logo never ends up ghosted on the
+  // revealed blue. "THE EDGE", always opaque within the mask, survives the
+  // whole trip — and since it's the same element as everything else, it's
+  // physically impossible for it to drift out of sync with the rest.
   const FADE_END = 0.4;
   const CURTAIN_START = 0.45;
-  function updateFullLogoCrop(navT, inNavbarPhase) {
+  function updateLogoFly(navT, inNavbarPhase) {
     canvas.style.opacity = inNavbarPhase ? "0" : "1";
     if (!inNavbarPhase) {
-      fullLogoCrop.style.opacity = "0";
+      logoFly.style.opacity = "0";
       return;
     }
-    fullLogoCrop.style.opacity = String(1 - clamp01(navT / FADE_END));
+    logoFly.style.opacity = "1";
 
-    const { left: dockLeft, top: dockTop } = dockAnchor(fullLogoCrop);
-    const { scale, tx, ty } = flyTransform(FULL_LOGO_RECT, navT, dockLeft, dockTop);
-    fullLogoCrop.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
+    const dockLeft = parseFloat(getComputedStyle(logoFly).left) || 24;
+    const dockTop = parseFloat(getComputedStyle(logoFly).top) || 25;
+    const { scale, tx, ty } = flyTransform(navT, dockLeft, dockTop);
+    logoFly.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
+
+    const mask = buildLogoMask(1 - clamp01(navT / FADE_END));
+    logoFly.style.maskImage = mask;
+    logoFly.style.webkitMaskImage = mask;
   }
 
   function updateNav(p) {
@@ -299,8 +285,7 @@
     const navT = span > 0 ? clamp01((p - REVEAL_PHASE_END) / span) : (p >= 1 ? 1 : 0);
     const inNavbarPhase = p >= REVEAL_PHASE_END;
 
-    updateEdgeCrop(p);
-    updateFullLogoCrop(navT, inNavbarPhase);
+    updateLogoFly(navT, inNavbarPhase);
 
     stage.style.backgroundColor = inNavbarPhase ? `rgb(${BG_DEEP.join(", ")})` : "";
     const navHeightPx = parseFloat(getComputedStyle(siteNav).height) || 72;
@@ -400,12 +385,15 @@
     // No scroll-driven animation here, so the nav just appears already docked
     // alongside the static logo (stage background stays black — there's no
     // scroll narrative here to motivate the curtain's slide-up reveal).
-    setupCrops();
+    setupLogoFly();
     siteNav.style.setProperty("--nav-line", "0.14");
     const navHeightPx = parseFloat(getComputedStyle(siteNav).height) || 72;
     navCurtain.style.height = `${navHeightPx}px`;
-    edgeCrop.style.opacity = "1";
-    edgeCrop.style.transform = "translate(0px, 0px) scale(1)";
+    logoFly.style.opacity = "1";
+    logoFly.style.transform = "translate(0px, 0px) scale(1)";
+    const dockedMask = buildLogoMask(0);
+    logoFly.style.maskImage = dockedMask;
+    logoFly.style.webkitMaskImage = dockedMask;
     navActions.style.setProperty("--nav-actions", "1");
     navActions.classList.add("ready");
   }
@@ -422,7 +410,7 @@
     gsap.ticker.add((time) => lenis.raf(time * 1000));
     gsap.ticker.lagSmoothing(0);
 
-    setupCrops();
+    setupLogoFly();
 
     const st = ScrollTrigger.create({
       trigger: pinSection,
@@ -457,6 +445,7 @@
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
       resizeRaf = requestAnimationFrame(() => {
         sizeCanvas();
+        setupLogoFly(); // dockLeftForViewport() may have crossed the 700px breakpoint
         renderAtProgress(currentScrollProgress());
         updateNav(currentScrollProgress());
         ScrollTrigger.refresh();

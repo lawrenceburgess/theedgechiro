@@ -62,42 +62,34 @@ html, body {
   border-bottom: 1px solid rgba(255, 255, 255, var(--nav-line, 0));
 }
 
-/* Direct crops out of the final frame — the actual baked pixels, not
-   separately-rendered text/graphics — so the logo can fly to the navbar as
-   one piece. Base width/height/img offsets are set once in JS to frame
-   each crop; only `transform` (scale + translate) changes per scroll
-   frame. Both share the same docked left/top anchor so they move in
-   lockstep (see CROP_K / flyTransform in main.js). */
-.edge-crop,
-.full-logo-crop {
+/* A single direct crop of the whole logo out of the final frame — the
+   actual baked pixels, not separately-rendered text — so it can fly to the
+   navbar as one piece with no second copy to ever drift out of sync. Base
+   width/height/img offset are set once in JS; `transform` (scale +
+   translate) and `mask-image` (which region fades vs. stays put) change
+   per scroll frame — see CROP_K / flyTransform / buildLogoMask in main.js.
+   "THE EDGE" stays opaque within the mask while spine + "CHIROPRACTIC"
+   fade, so there's only ever one rendering of "THE EDGE" on screen. */
+.logo-fly {
+  /* left/top are set in JS (see positioning in setupLogoFly), since they
+     have to account for where "THE EDGE" sits within the crop, not just
+     the viewport breakpoint. */
   position: fixed;
-  left: 24px;
-  top: 25px;
   display: block;
   overflow: hidden;
   transform-origin: top left;
   opacity: 0;
-  pointer-events: none;
+  z-index: 39;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
 }
 
-.edge-crop img,
-.full-logo-crop img {
+.logo-fly img {
   position: absolute;
   display: block;
   max-width: none;
-}
-
-.edge-crop {
-  z-index: 41;
-  pointer-events: auto;
-}
-
-.full-logo-crop {
-  z-index: 39;
-}
-
-@media (min-width: 700px) {
-  .edge-crop, .full-logo-crop { left: 48px; }
 }
 
 .nav-actions {
