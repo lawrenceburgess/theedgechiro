@@ -3,7 +3,7 @@
   const DESKTOP_DIR = "frames/desktop";
   const MOBILE_DIR = "frames/mobile";
   const PIN_VH_MULTIPLIER = 4.5; // screen heights spent playing the 121 frames
-  const REVEAL_VH_MULTIPLIER = 1.4; // extra screen heights spent shrinking to reveal the full wordmark
+  const REVEAL_VH_MULTIPLIER = 0.2; // extra screen heights spent shrinking to reveal the full wordmark
   const NAVBAR_VH_MULTIPLIER = 1.3; // extra screen heights spent flying "THE EDGE" into the navbar
   const TOTAL_VH = PIN_VH_MULTIPLIER + REVEAL_VH_MULTIPLIER + NAVBAR_VH_MULTIPLIER;
   const FRAME_PHASE_SHARE = PIN_VH_MULTIPLIER / TOTAL_VH;
