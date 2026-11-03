@@ -10,6 +10,7 @@
   const REVEAL_PHASE_END = (PIN_VH_MULTIPLIER + REVEAL_VH_MULTIPLIER) / TOTAL_VH;
   const REVEAL_SHRINK_TO = 0.85;
   const LOAD_CONCURRENCY = 6;
+  const DR_PARALLAX_SPEED = 1.4; // how many times faster the photo drifts than the page while its frame is in view
 
   const BG_DEEP = [14, 22, 36]; // dark muted blue revealed as the black curtain slides up
 
@@ -303,22 +304,36 @@
     navActions.classList.toggle("ready", actionsOpacity > 0.6);
   }
 
-  // How far the (uncropped-width) photo can pan before its bottom edge
-  // reaches the frame's bottom edge — i.e. the full vertical travel the
-  // source photo has to give once it's sized to the frame's width instead
-  // of cropped to its height.
-  function drPanRange() {
-    if (!drPhoto || !drPhotoFrame || !drPhoto.naturalWidth) return 0;
-    const renderedHeight = drPhotoFrame.clientWidth * (drPhoto.naturalHeight / drPhoto.naturalWidth);
-    return Math.max(0, renderedHeight - drPhotoFrame.clientHeight);
+  // Deliberately overscales the photo to DR_PARALLAX_SPEED x the frame's
+  // own height (well beyond what its natural aspect ratio would need), and
+  // centers it horizontally — that extra size is what gives the image room
+  // to travel faster than the frame itself as the page scrolls.
+  function layoutDrPhoto() {
+    if (!drPhoto || !drPhotoFrame || !drPhoto.naturalWidth) return;
+    const h = drPhotoFrame.clientHeight * DR_PARALLAX_SPEED;
+    const w = h * (drPhoto.naturalWidth / drPhoto.naturalHeight);
+    drPhoto.style.width = `${w}px`;
+    drPhoto.style.height = `${h}px`;
+    drPhoto.style.left = "50%";
+    drPhoto.style.marginLeft = `${-w / 2}px`;
   }
 
-  // Pans the photo from its top (same crop as a static top-anchored image)
-  // down to its bottom as the frame travels through the viewport, so the
-  // frame reads as a window the photo drifts past rather than a fixed crop.
+  // How far the oversized photo can travel before its bottom edge reaches
+  // the frame's bottom edge.
+  function drPanRange() {
+    if (!drPhotoFrame) return 0;
+    return drPhotoFrame.clientHeight * (DR_PARALLAX_SPEED - 1);
+  }
+
+  // Scrubs the photo from top to bottom of its own (oversized) height as
+  // the frame travels through the viewport. Because the photo is taller
+  // than the frame by DR_PARALLAX_SPEED, it covers that extra distance in
+  // the same scroll span the frame itself moves one frame-height — i.e. it
+  // visibly slides faster than the page, clipped by the frame around it.
   function setupDrParallax() {
     if (reducedMotion || !drPhoto || !drPhotoFrame) return;
     const start = () => {
+      layoutDrPhoto();
       gsap.fromTo(drPhoto, { y: 0 }, {
         y: () => -drPanRange(),
         ease: "none",
@@ -328,6 +343,7 @@
           end: "bottom top",
           scrub: true,
           invalidateOnRefresh: true,
+          onRefresh: layoutDrPhoto,
         },
       });
     };
