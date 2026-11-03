@@ -21,6 +21,12 @@
   const DOCK_CROP_W = 108;
   const DOCK_CROP_H = DOCK_CROP_W * (EDGE_CROP_RECT.h / EDGE_CROP_RECT.w);
 
+  // Pixel bounds of the whole logo (spine + full wordmark) in the same
+  // frame, similarly measured. Used so the whole thing can fly as one
+  // rigid piece (sharing EDGE_CROP_RECT's scale reference "k" below) while
+  // "THE EDGE" survives on top of it and everything else fades.
+  const FULL_LOGO_RECT = { x: 885, y: 385, w: 795, h: 665 };
+
   // Copy fade windows as [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd],
   // expressed as a fraction of the frame-playback phase (not the whole pin).
   const HERO_EXIT_END = 0.05;
@@ -45,6 +51,8 @@
   const navCurtain = document.getElementById("nav-curtain");
   const edgeCrop = document.getElementById("edge-crop");
   const edgeCropImg = edgeCrop.querySelector("img");
+  const fullLogoCrop = document.getElementById("full-logo-crop");
+  const fullLogoCropImg = fullLogoCrop.querySelector("img");
   const navActions = document.getElementById("nav-actions");
   const menuToggle = document.getElementById("menu-toggle");
   const navMenu = document.getElementById("nav-menu");
@@ -81,12 +89,17 @@
 
   // object-fit: cover math, with an extra `shrink` factor (<1) that pulls the
   // image in further than cover would, exposing more of its original width.
+  // The canvas is left transparent outside the drawn image (not filled
+  // black) so that .pin-stage's own background shows through — identical to
+  // black during the frame/reveal phases, but seamless once that background
+  // turns blue and the canvas itself starts shrinking via CSS transform in
+  // the navbar phase (an opaque fill would otherwise show up as a hard
+  // rectangle edge shrinking along with it).
   function drawCoverShrink(img, shrink) {
     const cw = canvas.width, ch = canvas.height;
     const s = Math.max(cw / img.naturalWidth, ch / img.naturalHeight) * shrink;
     const w = img.naturalWidth * s, h = img.naturalHeight * s;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, cw, ch);
+    ctx.clearRect(0, 0, cw, ch);
     ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
   }
 
@@ -155,27 +168,37 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const clamp01 = (n) => Math.max(0, Math.min(1, n));
 
-  // One-time layout: size the crop box to its docked (navbar) size, and
-  // scale/offset the full-frame img inside it so EDGE_CROP_RECT lines up
-  // exactly with the box. From here on, only `transform` on .edge-crop
-  // itself changes — scaling this base layout up/down as a unit, exactly
-  // like a sprite crop.
-  function setupEdgeCrop() {
-    const k = DOCK_CROP_W / EDGE_CROP_RECT.w;
-    edgeCrop.style.width = `${DOCK_CROP_W}px`;
-    edgeCrop.style.height = `${DOCK_CROP_H}px`;
-    edgeCropImg.style.width = `${2560 * k}px`;
-    edgeCropImg.style.height = `${1440 * k}px`;
-    edgeCropImg.style.left = `${-EDGE_CROP_RECT.x * k}px`;
-    edgeCropImg.style.top = `${-EDGE_CROP_RECT.y * k}px`;
+  // Both crops share this scale reference "k" (calibrated off the small
+  // navbar-docked size of EDGE_CROP_RECT), so a given on-screen width for
+  // either crop corresponds to the SAME underlying zoom level on the shared
+  // source image — which is what lets them move as one rigid piece using
+  // consistent math, even though they crop different regions.
+  const CROP_K = DOCK_CROP_W / EDGE_CROP_RECT.w;
+
+  // One-time layout: size each crop box, and scale/offset the full-frame
+  // img inside it so its rect lines up exactly with the box. From here on,
+  // only `transform` on the crop element itself changes — scaling this base
+  // layout up/down as a unit, exactly like a sprite crop.
+  function setupCrop(el, img, rect) {
+    el.style.width = `${rect.w * CROP_K}px`;
+    el.style.height = `${rect.h * CROP_K}px`;
+    img.style.width = `${2560 * CROP_K}px`;
+    img.style.height = `${1440 * CROP_K}px`;
+    img.style.left = `${-rect.x * CROP_K}px`;
+    img.style.top = `${-rect.y * CROP_K}px`;
   }
 
-  // Where EDGE_CROP_RECT lands on screen if the full frame were drawn with
+  function setupCrops() {
+    setupCrop(edgeCrop, edgeCropImg, EDGE_CROP_RECT);
+    setupCrop(fullLogoCrop, fullLogoCropImg, FULL_LOGO_RECT);
+  }
+
+  // Where `rect` lands on screen if the full frame were drawn with
   // drawCoverShrink(img, shrink) right now — i.e. exactly how the canvas
-  // itself is rendering that region. Used to keep the crop perfectly
-  // aligned with the canvas during the reveal phase, and as the fly
-  // animation's continuity anchor once the canvas starts fading.
-  function edgeCropRectForShrink(shrink) {
+  // itself is rendering that region. Used to keep a crop perfectly aligned
+  // with the canvas during the reveal phase, and as the fly animation's
+  // continuity anchor once the canvas hands off to the crops.
+  function cropRectForShrink(rect, shrink) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cw = canvas.width, ch = canvas.height;
     const s = Math.max(cw / 2560, ch / 1440) * shrink;
@@ -183,9 +206,9 @@
     const ox = (cw - 2560 * s) / 2 / dpr;
     const oy = (ch - 1440 * s) / 2 / dpr;
     return {
-      x: ox + EDGE_CROP_RECT.x * sCss,
-      y: oy + EDGE_CROP_RECT.y * sCss,
-      w: EDGE_CROP_RECT.w * sCss,
+      x: ox + rect.x * sCss,
+      y: oy + rect.y * sCss,
+      w: rect.w * sCss,
     };
   }
 
@@ -195,46 +218,93 @@
     return 1 - (1 - REVEAL_SHRINK_TO) * clamp01(t);
   }
 
+  // The fly transform for a crop at a given navbar-phase progress: starts
+  // (navT=0) exactly matching how the canvas rendered `rect` at the reveal
+  // phase's final shrink, and ends (navT=1) fully docked (identity
+  // transform, since each crop's own base layout already *is* its docked
+  // appearance).
+  function flyTransform(rect, navT, dockLeft, dockTop) {
+    const boundary = cropRectForShrink(rect, REVEAL_SHRINK_TO);
+    const scaleFrom = boundary.w / (rect.w * CROP_K);
+    const txFrom = boundary.x - dockLeft;
+    const tyFrom = boundary.y - dockTop;
+    return {
+      scale: lerp(scaleFrom, 1, navT),
+      tx: lerp(txFrom, 0, navT),
+      ty: lerp(tyFrom, 0, navT),
+    };
+  }
+
+  function dockAnchor(el) {
+    return {
+      left: parseFloat(getComputedStyle(el).left) || 24,
+      top: parseFloat(getComputedStyle(el).top) || 25,
+    };
+  }
+
   function updateEdgeCrop(p) {
     if (p < FRAME_PHASE_SHARE) {
       edgeCrop.style.opacity = "0";
       return;
     }
     edgeCrop.style.opacity = "1";
+    const { left: dockLeft, top: dockTop } = dockAnchor(edgeCrop);
 
-    const dockLeft = parseFloat(getComputedStyle(edgeCrop).left) || 24;
-    const dockTop = parseFloat(getComputedStyle(edgeCrop).top) || 24;
-
-    let rect, S;
+    let tx, ty, S;
     if (p <= REVEAL_PHASE_END) {
-      rect = edgeCropRectForShrink(shrinkForProgress(p));
+      const rect = cropRectForShrink(EDGE_CROP_RECT, shrinkForProgress(p));
       S = rect.w / DOCK_CROP_W;
+      tx = rect.x - dockLeft;
+      ty = rect.y - dockTop;
     } else {
-      const boundary = edgeCropRectForShrink(REVEAL_SHRINK_TO);
       const span = 1 - REVEAL_PHASE_END;
       const navT = span > 0 ? clamp01((p - REVEAL_PHASE_END) / span) : 1;
-      S = lerp(boundary.w / DOCK_CROP_W, 1, navT);
-      rect = {
-        x: lerp(boundary.x, dockLeft, navT),
-        y: lerp(boundary.y, dockTop, navT),
-      };
+      ({ scale: S, tx, ty } = flyTransform(EDGE_CROP_RECT, navT, dockLeft, dockTop));
     }
-    const tx = rect.x - dockLeft;
-    const ty = rect.y - dockTop;
     edgeCrop.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${S.toFixed(4)})`;
   }
 
-  // The rest of the logo (spine + "CHIROPRACTIC") fades out while a black
-  // curtain — initially covering the whole stage — slides its bottom edge
-  // up to the navbar's height, "sticking" there and revealing the deep blue
-  // stage background as it recedes. The canvas renders ABOVE the curtain
-  // (see .pin-section's z-index) so the fading logo is visible against the
-  // still-black curtain as it passes — but it must never appear sitting on
-  // the already-revealed blue. Masking the canvas to the exact same edge as
-  // the curtain, with a soft feather right at that line, keeps the two in
-  // perfect lockstep: a gentle dissolve exactly where the wipe is, and
-  // nothing left behind once it's passed.
+  // Once the reveal phase ends, the canvas hands off entirely to
+  // .full-logo-crop — a tight crop of the whole logo (spine + full
+  // wordmark) that flies toward the navbar using the exact same transform
+  // math as .edge-crop (see flyTransform), so the whole thing moves as one
+  // rigid piece instead of "THE EDGE" flying away from a logo left behind.
+  // A black curtain, initially covering the whole stage, slides its bottom
+  // edge up to the navbar's height, revealing the deep blue stage
+  // background as it recedes. full-logo-crop is masked to that exact same
+  // edge (with a soft feather right at the line) so spine + "CHIROPRACTIC"
+  // dissolve exactly where the wipe is and never show up sitting on the
+  // revealed blue — while edge-crop, unmasked, rides along on top and
+  // survives the whole trip.
   const MASK_FEATHER_PX = 110;
+  function updateFullLogoCrop(p, navT, inNavbarPhase, curtainHeightPx) {
+    canvas.style.opacity = inNavbarPhase ? "0" : "1";
+    if (!inNavbarPhase) {
+      fullLogoCrop.style.opacity = "0";
+      return;
+    }
+    fullLogoCrop.style.opacity = "1";
+
+    const { left: dockLeft, top: dockTop } = dockAnchor(fullLogoCrop);
+    const { scale, tx, ty } = flyTransform(FULL_LOGO_RECT, navT, dockLeft, dockTop);
+    fullLogoCrop.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
+
+    // mask-image is positioned in the crop's own local (pre-transform)
+    // space, so the wipe line's local Y has to be solved backwards from
+    // where we want it to land on screen (curtainHeightPx) given the
+    // transform just applied above.
+    const localEdge = (curtainHeightPx - ty) / scale;
+    const localFeather = MASK_FEATHER_PX / scale;
+    if (localEdge <= localFeather) {
+      fullLogoCrop.style.maskImage = "linear-gradient(transparent, transparent)";
+      fullLogoCrop.style.webkitMaskImage = "linear-gradient(transparent, transparent)";
+    } else {
+      const mask = `linear-gradient(to bottom, #000 0, #000 ${(localEdge - localFeather).toFixed(1)}px, transparent ${localEdge.toFixed(1)}px, transparent 100%)`;
+      fullLogoCrop.style.maskImage = mask;
+      fullLogoCrop.style.webkitMaskImage = mask;
+    }
+  }
+
   function updateNav(p) {
     const span = 1 - REVEAL_PHASE_END;
     const navT = span > 0 ? clamp01((p - REVEAL_PHASE_END) / span) : (p >= 1 ? 1 : 0);
@@ -247,22 +317,7 @@
     const curtainHeightPx = inNavbarPhase ? lerp(window.innerHeight, navHeightPx, navT) : window.innerHeight;
     navCurtain.style.height = inNavbarPhase ? `${curtainHeightPx}px` : "0px";
 
-    if (!inNavbarPhase) {
-      canvas.style.maskImage = "";
-      canvas.style.webkitMaskImage = "";
-    } else if (curtainHeightPx <= MASK_FEATHER_PX) {
-      // Too close to the navbar's own height for the feather math below to
-      // make sense (it would let a sliver bleed through near y=0) — by this
-      // point the dissolve has already fully played out higher up, so just
-      // hide the canvas outright.
-      canvas.style.maskImage = "linear-gradient(transparent, transparent)";
-      canvas.style.webkitMaskImage = "linear-gradient(transparent, transparent)";
-    } else {
-      const edge = curtainHeightPx;
-      const mask = `linear-gradient(to bottom, #000 0, #000 ${edge - MASK_FEATHER_PX}px, transparent ${edge}px, transparent 100%)`;
-      canvas.style.maskImage = mask;
-      canvas.style.webkitMaskImage = mask;
-    }
+    updateFullLogoCrop(p, navT, inNavbarPhase, curtainHeightPx);
 
     siteNav.style.setProperty("--nav-line", String(clamp01((navT - 0.85) / 0.15) * 0.14));
 
@@ -356,7 +411,7 @@
     // No scroll-driven animation here, so the nav just appears already docked
     // alongside the static logo (stage background stays black — there's no
     // scroll narrative here to motivate the curtain's slide-up reveal).
-    setupEdgeCrop();
+    setupCrops();
     siteNav.style.setProperty("--nav-line", "0.14");
     const navHeightPx = parseFloat(getComputedStyle(siteNav).height) || 72;
     navCurtain.style.height = `${navHeightPx}px`;
@@ -378,7 +433,7 @@
     gsap.ticker.add((time) => lenis.raf(time * 1000));
     gsap.ticker.lagSmoothing(0);
 
-    setupEdgeCrop();
+    setupCrops();
 
     const st = ScrollTrigger.create({
       trigger: pinSection,

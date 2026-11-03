@@ -62,12 +62,14 @@ html, body {
   border-bottom: 1px solid rgba(255, 255, 255, var(--nav-line, 0));
 }
 
-/* A direct crop of "THE EDGE" out of the final frame — the actual baked
-   pixels, not separately-rendered text — so it can fly to the navbar
-   while the rest of the logo (spine + "CHIROPRACTIC") fades away. Base
-   width/height/img offsets are set once in JS to frame the crop; only
-   `transform` (scale + translate) changes per scroll frame. */
-.edge-crop {
+/* Direct crops out of the final frame — the actual baked pixels, not
+   separately-rendered text/graphics — so the logo can fly to the navbar as
+   one piece. Base width/height/img offsets are set once in JS to frame
+   each crop; only `transform` (scale + translate) changes per scroll
+   frame. Both share the same docked left/top anchor so they move in
+   lockstep (see CROP_K / flyTransform in main.js). */
+.edge-crop,
+.full-logo-crop {
   position: fixed;
   left: 24px;
   top: 25px;
@@ -75,17 +77,27 @@ html, body {
   overflow: hidden;
   transform-origin: top left;
   opacity: 0;
-  z-index: 41;
+  pointer-events: none;
 }
 
-.edge-crop img {
+.edge-crop img,
+.full-logo-crop img {
   position: absolute;
   display: block;
   max-width: none;
 }
 
+.edge-crop {
+  z-index: 41;
+  pointer-events: auto;
+}
+
+.full-logo-crop {
+  z-index: 39;
+}
+
 @media (min-width: 700px) {
-  .edge-crop { left: 48px; }
+  .edge-crop, .full-logo-crop { left: 48px; }
 }
 
 .nav-actions {
@@ -164,7 +176,6 @@ html, body {
 
 .pin-section {
   position: relative;
-  z-index: 39; /* above .nav-curtain(38) so the fading logo shows against it */
   background: var(--bg);
 }
 
