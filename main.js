@@ -325,27 +325,32 @@
     return drPhotoFrame.clientHeight * (DR_PARALLAX_SPEED - 1);
   }
 
-  // Scrubs the photo from top to bottom of its own (oversized) height as
-  // the frame travels through the viewport. Because the photo is taller
-  // than the frame by DR_PARALLAX_SPEED, it covers that extra distance in
-  // the same scroll span the frame itself moves one frame-height — i.e. it
-  // visibly slides faster than the page, clipped by the frame around it.
+  // Pans the photo from top to bottom of its own (oversized) height over
+  // the scroll distance exactly equal to one frame-height — frame-top at
+  // viewport-center to frame-bottom at viewport-center — read live off
+  // getBoundingClientRect() every tick instead of GSAP's cached trigger
+  // start/end. A ScrollTrigger-scrub version of this kept getting its
+  // start/end corrupted by the *later*, unrelated global refresh the pin
+  // section's resize handler triggers (reproducible: individually
+  // refreshing the trigger gave correct bounds, but the very next global
+  // ScrollTrigger.refresh() silently reset them to a stale, much-too-small
+  // range left over from before the pin's spacer existed) — rather than
+  // depend on that ordering, this just recomputes from the DOM directly,
+  // the same way renderAtProgress/updateNav already do.
+  let drPhotoReady = false;
+  function updateDrParallax() {
+    if (reducedMotion || !drPhotoReady) return;
+    const rect = drPhotoFrame.getBoundingClientRect();
+    const t = clamp01((window.innerHeight / 2 - rect.top) / rect.height);
+    drPhoto.style.transform = `translateY(${(-drPanRange() * t).toFixed(2)}px)`;
+  }
+
   function setupDrParallax() {
     if (reducedMotion || !drPhoto || !drPhotoFrame) return;
     const start = () => {
       layoutDrPhoto();
-      gsap.fromTo(drPhoto, { y: 0 }, {
-        y: () => -drPanRange(),
-        ease: "none",
-        scrollTrigger: {
-          trigger: drPhotoFrame,
-          start: "top bottom",
-          end: "bottom top",
-          scrub: true,
-          invalidateOnRefresh: true,
-          onRefresh: layoutDrPhoto,
-        },
-      });
+      drPhotoReady = true;
+      updateDrParallax();
     };
     if (drPhoto.complete && drPhoto.naturalWidth) start();
     else drPhoto.addEventListener("load", start, { once: true });
@@ -457,7 +462,10 @@
     gsap.registerPlugin(ScrollTrigger);
 
     const lenis = new Lenis({ smoothWheel: true, duration: 1.1 });
-    lenis.on("scroll", ScrollTrigger.update);
+    lenis.on("scroll", () => {
+      ScrollTrigger.update();
+      updateDrParallax();
+    });
     gsap.ticker.add((time) => lenis.raf(time * 1000));
     gsap.ticker.lagSmoothing(0);
 
@@ -500,6 +508,8 @@
         setupLogoFly(); // dockLeftForViewport() may have crossed the 700px breakpoint
         renderAtProgress(currentScrollProgress());
         updateNav(currentScrollProgress());
+        layoutDrPhoto();
+        updateDrParallax();
         ScrollTrigger.refresh();
       });
     });
