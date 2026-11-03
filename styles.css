@@ -3,6 +3,7 @@
   --fg: #f4f4f2;
   --muted: #9a9a9a;
   --orange: #dd2f1c;
+  --navy: #0e1624; /* matches BG_DEEP in main.js, so the curtain reveal lands on this exact color */
   --nav-h: 72px;
 }
 
@@ -26,6 +27,73 @@ html, body {
 
 .outro p { color: var(--muted); margin-top: 14px; font-size: clamp(.9rem, 2vw, 1.05rem); }
 .outro h2 { font-family: "Jost", "Helvetica Neue", Arial, sans-serif; font-weight: 400; letter-spacing: .04em; font-size: clamp(1.8rem, 4.5vw, 3.2rem); }
+
+/* ---------- Meet Dr. Dunlap ---------- */
+/* Sits directly below the pinned hero and shares its exact curtain-reveal
+   blue (--navy), so the handoff from the scroll animation stays seamless
+   instead of cutting to black. */
+.dr-section {
+  background: var(--navy);
+  padding: 96px 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.dr-card {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
+.dr-heading {
+  font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: .04em;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  margin-bottom: 32px;
+}
+
+.dr-photo-frame {
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 6px;
+  margin: 0 auto 28px;
+}
+
+.dr-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.dr-credentials {
+  color: var(--muted);
+  font-size: .92rem;
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.dr-cta {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, .4);
+  padding: 12px 26px;
+  font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: .78rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease;
+}
+
+.dr-cta:hover {
+  background: rgba(255, 255, 255, .08);
+  border-color: rgba(255, 255, 255, .7);
+}
 
 @keyframes bob {
   0%, 100% { transform: translateY(0); opacity: .5; }
@@ -103,10 +171,17 @@ html, body {
 
 .nav-actions.ready { pointer-events: auto; }
 
-.call-now {
+/* iOS Safari re-skins tel: links (black + underlined) unless the color is
+   stated this explicitly — the <meta name="format-detection"> tag in
+   index.html opts out of that, and :link/:visited are pinned here too in
+   case a UA stylesheet still wins specificity on first paint. */
+.call-now,
+.call-now:link,
+.call-now:visited {
   display: inline-block;
   background: var(--orange);
   color: #fff;
+  -webkit-text-fill-color: #fff;
   border: 0;
   padding: 10px 18px;
   font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
