@@ -259,13 +259,11 @@
 
   // spine + "CHIROPRACTIC" fade out (via the mask above) over a plain navT
   // curve while logo-fly flies — visible against the still-black curtain.
-  // The curtain itself doesn't start revealing blue until CURTAIN_START,
-  // safely after FADE_END, so the fading logo never ends up ghosted on the
-  // revealed blue. "THE EDGE", always opaque within the mask, survives the
-  // whole trip — and since it's the same element as everything else, it's
-  // physically impossible for it to drift out of sync with the rest.
+  // "THE EDGE", always opaque within the mask, survives the whole trip —
+  // and since it's the same element as everything else, it's physically
+  // impossible for it to drift out of sync with the rest.
   const FADE_END = 0.4;
-  const CURTAIN_START = 0.45;
+  const CURTAIN_START = 0; // curtain starts sliding the instant the fly begins
   function updateLogoFly(navT, inNavbarPhase) {
     canvas.style.opacity = inNavbarPhase ? "0" : "1";
     if (!inNavbarPhase) {
