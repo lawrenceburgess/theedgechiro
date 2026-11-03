@@ -10,7 +10,7 @@
   const REVEAL_PHASE_END = (PIN_VH_MULTIPLIER + REVEAL_VH_MULTIPLIER) / TOTAL_VH;
   const REVEAL_SHRINK_TO = 0.85;
   const LOAD_CONCURRENCY = 6;
-  const DR_PARALLAX_SPEED = 1.4; // how many times faster the photo drifts than the page while its frame is in view
+  const DR_PARALLAX_SPEED = 1.2; // how many times faster the photo drifts than the page while its frame is in view
 
   const BG_DEEP = [14, 22, 36]; // dark muted blue revealed as the black curtain slides up
 
