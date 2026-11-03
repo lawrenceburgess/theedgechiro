@@ -41,7 +41,11 @@ html, body {
   position: relative;
   margin-top: -100svh;
   background: var(--navy);
-  padding: 96px 24px;
+  /* top padding only needs to clear the fixed navbar (--nav-h) plus a
+     little breathing room — any more and the heading sits under it
+     (dr-section's top edge lands right where the navbar docks, the
+     instant the curtain finishes). */
+  padding: calc(var(--nav-h) + 12px) 24px 96px;
   display: flex;
   justify-content: center;
 }
