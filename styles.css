@@ -417,9 +417,9 @@ html, body {
 
 .drx-subline {
   margin-top: 18px;
-  max-width: 520px;
-  color: var(--muted);
-  font-size: clamp(1.1rem, 2.5vw, 1.2rem);
+  max-width: 560px;
+  color: var(--fg);
+  font-size: clamp(1.3rem, 3vw, 1.6rem);
   line-height: 1.5;
   text-shadow: 0 2px 24px rgba(0,0,0,.6);
 }

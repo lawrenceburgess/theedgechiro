@@ -12,7 +12,7 @@
   // then hold through the end of the section (fade-out end set past 1 since
   // progress never reaches it, so there's nothing left to fade out into).
   const HEADLINE_WINDOW = [0.0, 0.06, 0.22, 0.30];
-  const SUBHEAD_WINDOW = [0.76, 0.84, 1.05, 1.05];
+  const SUBHEAD_WINDOW = [0.66, 0.74, 1.05, 1.05];
 
   const canvas = document.getElementById("drx-canvas");
   const ctx = canvas.getContext("2d");
