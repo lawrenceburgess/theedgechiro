@@ -392,14 +392,22 @@ html, body {
 
 /* Same family/weight/letter-spacing as .hero-title, so this headline reads
    as the same typeface as the site's main hero rather than a slightly
-   lighter look-alike. */
+   lighter look-alike. No text-shadow here — the .drx-scrim vignette behind
+   it carries the contrast instead of a glow hugging the glyphs. */
 .drx-headline {
   font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
   font-weight: 500;
   letter-spacing: .01em;
-  font-size: clamp(1.8rem, 5vw, 3.8rem);
-  line-height: 1.25;
-  text-shadow: 0 2px 24px rgba(0,0,0,.6);
+  font-size: clamp(2.2rem, 6vw, 4.4rem);
+  line-height: 1.22;
+}
+
+/* Each word fades in on its own staggered window (see drx9000.js) rather
+   than the whole headline appearing at once; inline-block so opacity
+   transitions cleanly without affecting the natural word-wrap/spacing. */
+.drx-word {
+  display: inline-block;
+  opacity: 0;
 }
 
 /* Hidden by default so desktop/tablet keep their own natural wrap; shown
@@ -417,10 +425,10 @@ html, body {
 
 .drx-subline {
   margin-top: 18px;
-  max-width: 560px;
+  max-width: 640px;
   color: var(--fg);
-  font-size: clamp(1.3rem, 3vw, 1.6rem);
-  line-height: 1.5;
+  font-size: clamp(1.7rem, 4.2vw, 2.4rem);
+  line-height: 1.4;
   text-shadow: 0 2px 24px rgba(0,0,0,.6);
 }
 

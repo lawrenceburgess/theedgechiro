@@ -7,11 +7,16 @@
   // Fade windows as [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd], as a
   // fraction of this section's own scroll progress — matches the .copy .line
   // triangle-window pattern already used by the first hero in main.js.
-  // Headline rides the opening office shot; subheading + button wait until
-  // the vertebrae-separation shot (the crossfade lands around 0.64-0.73) and
-  // then hold through the end of the section (fade-out end set past 1 since
-  // progress never reaches it, so there's nothing left to fade out into).
-  const HEADLINE_WINDOW = [0.0, 0.06, 0.22, 0.30];
+  // The headline's words stagger in one at a time (see WORD_STAGGER below)
+  // but all share this same fade-out: they hold fully visible through the
+  // whole opening shot and only fade as the crossfade into the vertebrae
+  // begins, so the headline never disappears before that transition starts.
+  // Subheading + button wait until that same crossfade (lands ~0.64-0.73)
+  // and then hold through the end of the section (fade-out end set past 1
+  // since progress never reaches it, so there's nothing left to fade into).
+  const HEADLINE_FADEOUT = [0.64, 0.73];
+  const WORD_STAGGER = 0.025; // scroll-progress offset between each word's own fade-in start
+  const WORD_FADEIN_DUR = 0.05; // each word's own fade-in ramp length
   const SUBHEAD_WINDOW = [0.66, 0.74, 1.05, 1.05];
 
   const canvas = document.getElementById("drx-canvas");
@@ -20,6 +25,7 @@
   const pinSection = document.getElementById("drx-pin-section");
   const loadingEl = document.getElementById("drx-loading-indicator");
   const scrim = document.getElementById("drx-scrim");
+  const words = Array.from(document.querySelectorAll("#drx-headline .drx-word"));
   const lines = Array.from(document.querySelectorAll("#drx-copy .line"));
 
   const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -93,21 +99,26 @@
   }
 
   function updateCopy(p) {
-    const [a, b, c, d] = HEADLINE_WINDOW;
+    const [fc, fd] = HEADLINE_FADEOUT;
+    let headlineOpacity = 0;
+    words.forEach((word, i) => {
+      const a = i * WORD_STAGGER, b = a + WORD_FADEIN_DUR;
+      const o = triWindow(p, a, b, fc, fd);
+      word.style.opacity = String(o);
+      if (o > headlineOpacity) headlineOpacity = o;
+    });
     const [sa, sb, sc, sd] = SUBHEAD_WINDOW;
-    const headlineOpacity = triWindow(p, a, b, c, d);
-    if (lines[0]) lines[0].style.opacity = String(headlineOpacity);
     const subOpacity = triWindow(p, sa, sb, sc, sd);
-    if (lines[1]) lines[1].style.opacity = String(subOpacity);
+    if (lines[0]) lines[0].style.opacity = String(subOpacity);
     // Headline and subheading/button now ride two different shots (opening
     // office scene, then the vertebrae-separation close-up), so the scrim
     // follows whichever of the two is actually on screen.
     if (scrim) scrim.style.opacity = String(Math.max(headlineOpacity, subOpacity));
     // Button shares the subheading's fade window and only accepts clicks
     // once mostly faded in (see .drx-cta.ready in styles.css).
-    if (lines[2]) {
-      lines[2].style.opacity = String(subOpacity);
-      lines[2].classList.toggle("ready", subOpacity > 0.6);
+    if (lines[1]) {
+      lines[1].style.opacity = String(subOpacity);
+      lines[1].classList.toggle("ready", subOpacity > 0.6);
     }
   }
 
@@ -154,6 +165,7 @@
     img.onload = () => { sizeCanvas(); drawCover(img); loadingEl.remove(); };
     img.onerror = () => loadingEl.remove();
     img.src = frameSrc(0);
+    words.forEach((w) => { w.style.opacity = "1"; });
     lines.forEach((l) => {
       l.style.opacity = "1";
       l.style.position = "static";
@@ -176,7 +188,13 @@
     const st = ScrollTrigger.create({
       trigger: pinSection,
       start: "top top",
-      end: () => `+=${window.innerHeight * PIN_VH_MULTIPLIER}`,
+      // Measuring the pin distance off the stage's own rendered height
+      // (rather than window.innerHeight) keeps it self-consistent with the
+      // CSS 100svh the stage actually uses — on mobile browsers, the two can
+      // momentarily disagree while the address-bar/toolbar shows or hides,
+      // which otherwise shows up as a dead gap or a pin that starts later
+      // than it should.
+      end: () => `+=${stage.clientHeight * PIN_VH_MULTIPLIER}`,
       scrub: true,
       pin: true,
       anticipatePin: 1,
@@ -188,6 +206,15 @@
       onRefresh: (self) => { scrollTriggerInstance = self; },
     });
     scrollTriggerInstance = st;
+
+    // Earlier sections' heights can still shift slightly after this trigger
+    // is first measured — a late webfont swap (Jost) reflowing Dr. Dunlap's
+    // text, or images finishing layout — which would otherwise leave this
+    // trigger's start/end pinned to stale positions.
+    window.addEventListener("load", () => ScrollTrigger.refresh());
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => ScrollTrigger.refresh());
+    }
 
     let resizeRaf = null;
     window.addEventListener("resize", () => {
