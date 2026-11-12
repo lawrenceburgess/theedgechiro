@@ -16,13 +16,18 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Follows the DRX9000 pin-section below — same trailing-dead-space fix as
+   dr-section, pulled up over the one screen of now-unpinned pin-stage height
+   that section leaves behind once its own scroll distance is used up. */
 .outro {
   min-height: 100svh;
+  margin-top: -100svh;
   display: grid;
   place-items: center;
   text-align: center;
   padding: 0 24px;
   background: var(--bg);
+  position: relative;
 }
 
 .outro p { color: var(--muted); margin-top: 14px; font-size: clamp(.9rem, 2vw, 1.05rem); }
@@ -345,6 +350,79 @@ html, body {
   line-height: 1.25;
   padding: 0 28px;
   text-shadow: 0 2px 24px rgba(0,0,0,.6);
+}
+
+/* ---------- DRX9000 pinned sequence ---------- */
+/* Headline + subheadline sit stacked (not exclusively overlapping like the
+   first hero's three lines), so .line here only supplies the shared fade
+   transition — position/layout comes from .drx-copy's flex column instead
+   of the grid+absolute-center pattern the first hero's .copy uses. */
+/* A soft dark vignette behind the text, independent of each line's own
+   fade — the photo/video behind this copy is sometimes light (cream walls,
+   rug), where plain text-shadow alone isn't reliable contrast. Opacity is
+   driven in drx9000.js off the headline's own fade window (the broadest of
+   the three), so it appears and disappears with the copy block instead of
+   darkening the shot for the rest of the section. */
+.drx-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse 70% 55% at 50% 48%, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 72%);
+}
+
+.drx-copy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 28px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.drx-copy .line {
+  position: static;
+  opacity: 0;
+}
+
+/* Same family/weight/letter-spacing as .hero-title, so this headline reads
+   as the same typeface as the site's main hero rather than a slightly
+   lighter look-alike. */
+.drx-headline {
+  font-family: "Jost", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  letter-spacing: .01em;
+  font-size: clamp(1.8rem, 5vw, 3.8rem);
+  line-height: 1.25;
+  text-shadow: 0 2px 24px rgba(0,0,0,.6);
+}
+
+.drx-subline {
+  margin-top: 18px;
+  max-width: 520px;
+  color: var(--muted);
+  font-size: clamp(.95rem, 2vw, 1.15rem);
+  line-height: 1.5;
+  text-shadow: 0 2px 24px rgba(0,0,0,.6);
+}
+
+/* .drx-copy is pointer-events:none so it never blocks scroll/clicks on the
+   canvas behind it; only the button opts back in, and only while its fade
+   window actually has it visible (toggled in drx9000.js, same pattern as
+   .nav-actions.ready) — otherwise an invisible button would still catch
+   clicks for the rest of this section's long scroll distance. */
+.drx-cta {
+  margin-top: 28px;
+  pointer-events: none;
+}
+
+.drx-cta.ready {
+  pointer-events: auto;
 }
 
 .loading-indicator {
