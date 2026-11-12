@@ -8,16 +8,18 @@
   // fraction of this section's own scroll progress — matches the .copy .line
   // triangle-window pattern already used by the first hero in main.js.
   // The headline's words stagger in one at a time (see WORD_STAGGER below)
-  // but all share this same fade-out: they hold fully visible through the
-  // whole opening shot and only fade as the crossfade into the vertebrae
-  // begins, so the headline never disappears before that transition starts.
-  // Subheading + button wait until that same crossfade (lands ~0.64-0.73)
-  // and then hold through the end of the section (fade-out end set past 1
-  // since progress never reaches it, so there's nothing left to fade into).
-  const HEADLINE_FADEOUT = [0.64, 0.73];
+  // but all share this same fade-out. The crossfade itself spans roughly
+  // 0.635-0.726 of this section's progress; the headline is fully gone
+  // *before* that starts (by 0.60) and the subheading only starts fading in
+  // *after* it's resolved to the vertebrae shot (0.73+), so the two copy
+  // blocks never show at once and neither sits on a frame that still reads
+  // as the other block's shot. Subheading + button then hold through the
+  // end of the section (fade-out end set past 1 since progress never
+  // reaches it, so there's nothing left to fade into).
+  const HEADLINE_FADEOUT = [0.52, 0.60];
   const WORD_STAGGER = 0.025; // scroll-progress offset between each word's own fade-in start
   const WORD_FADEIN_DUR = 0.05; // each word's own fade-in ramp length
-  const SUBHEAD_WINDOW = [0.66, 0.74, 1.05, 1.05];
+  const SUBHEAD_WINDOW = [0.73, 0.80, 1.05, 1.05];
 
   const canvas = document.getElementById("drx-canvas");
   const ctx = canvas.getContext("2d");
