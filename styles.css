@@ -402,11 +402,24 @@ html, body {
   text-shadow: 0 2px 24px rgba(0,0,0,.6);
 }
 
+/* Hidden by default so desktop/tablet keep their own natural wrap; shown
+   only on phone-width screens to force the exact "Relieve Back" / "and Neck
+   Pain" break requested there. */
+.drx-break-mobile {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .drx-break-mobile {
+    display: inline;
+  }
+}
+
 .drx-subline {
   margin-top: 18px;
   max-width: 520px;
   color: var(--muted);
-  font-size: clamp(.95rem, 2vw, 1.15rem);
+  font-size: clamp(1.1rem, 2.5vw, 1.2rem);
   line-height: 1.5;
   text-shadow: 0 2px 24px rgba(0,0,0,.6);
 }
