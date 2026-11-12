@@ -26,11 +26,12 @@ html, body {
   place-items: center;
   text-align: center;
   padding: 0 24px;
-  background: var(--bg);
+  background: #B3CDE4;
+  color: #000;
   position: relative;
 }
 
-.outro p { color: var(--muted); margin-top: 14px; font-size: clamp(.9rem, 2vw, 1.05rem); }
+.outro p { color: #000; margin-top: 14px; font-size: clamp(.9rem, 2vw, 1.05rem); }
 .outro h2 { font-family: "Jost", "Helvetica Neue", Arial, sans-serif; font-weight: 400; letter-spacing: .04em; font-size: clamp(1.8rem, 4.5vw, 3.2rem); }
 
 /* ---------- Meet Dr. Dunlap ---------- */
@@ -423,13 +424,14 @@ html, body {
   }
 }
 
+/* No text-shadow — the .drx-scrim vignette behind it carries the contrast,
+   same reasoning as the headline. */
 .drx-subline {
   margin-top: 18px;
   max-width: 640px;
   color: var(--fg);
   font-size: clamp(1.7rem, 4.2vw, 2.4rem);
   line-height: 1.4;
-  text-shadow: 0 2px 24px rgba(0,0,0,.6);
 }
 
 /* .drx-copy is pointer-events:none so it never blocks scroll/clicks on the

@@ -1,25 +1,48 @@
 (() => {
   const FRAME_COUNT = 177; // orbit+push-in -> crossfade -> vertebrae separation, extracted at 16fps
   const DESKTOP_DIR = "frames/drx9000/desktop";
-  const PIN_VH_MULTIPLIER = 6; // screen heights spent scrubbing the sequence
   const LOAD_CONCURRENCY = 6;
+
+  // Scroll distance is built from three screen-height budgets rather than
+  // one flat multiplier, so the sequence can *hold* on a single frame for a
+  // stretch (while the subheading fades in) instead of scrubbing frames the
+  // whole time:
+  //   VH_INTRO  - orbit/push-in through the crossfade into the vertebrae shot
+  //   VH_HOLD   - frozen on the first (compressed/red) vertebra frame while
+  //               the subheading fades in, so the text finishes appearing
+  //               before anything in the shot moves again
+  //   VH_MOTION - the red -> purple separation itself, scrubbed across more
+  //               screens than before so it reads as visibly slower
+  const VH_INTRO = 4.4;
+  const VH_HOLD = 1.0;
+  const VH_MOTION = 2.0;
+  const TOTAL_VH = VH_INTRO + VH_HOLD + VH_MOTION;
+
+  const P_INTRO_END = VH_INTRO / TOTAL_VH; // crossfade resolves, hold begins
+  const P_HOLD_END = (VH_INTRO + VH_HOLD) / TOTAL_VH; // subheading fully visible, motion begins
+
+  // 0-indexed frame where the crossfade dissolve has resolved to the
+  // vertebrae shot (combined video: segAB+crossfade run to ~8.04s of 11.08s
+  // at 16fps) — this is the frame held during VH_HOLD and the motion
+  // segment's start frame.
+  const CROSSFADE_END_FRAME = 129;
+  const LAST_FRAME = FRAME_COUNT - 1;
 
   // Fade windows as [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd], as a
   // fraction of this section's own scroll progress — matches the .copy .line
   // triangle-window pattern already used by the first hero in main.js.
   // The headline's words stagger in one at a time (see WORD_STAGGER below)
-  // but all share this same fade-out. The crossfade itself spans roughly
-  // 0.635-0.726 of this section's progress; the headline is fully gone
-  // *before* that starts (by 0.60) and the subheading only starts fading in
-  // *after* it's resolved to the vertebrae shot (0.73+), so the two copy
-  // blocks never show at once and neither sits on a frame that still reads
-  // as the other block's shot. Subheading + button then hold through the
-  // end of the section (fade-out end set past 1 since progress never
-  // reaches it, so there's nothing left to fade into).
-  const HEADLINE_FADEOUT = [0.52, 0.60];
-  const WORD_STAGGER = 0.025; // scroll-progress offset between each word's own fade-in start
-  const WORD_FADEIN_DUR = 0.05; // each word's own fade-in ramp length
-  const SUBHEAD_WINDOW = [0.73, 0.80, 1.05, 1.05];
+  // but all share this same fade-out, finishing well before the crossfade
+  // starts. The subheading's fade-in is tied directly to the hold segment —
+  // it starts the moment the hold begins and finishes exactly as the hold
+  // ends, so the vertebrae only start separating once the text has fully
+  // appeared. Subheading + button then hold through the end of the section
+  // (fade-out end set past 1 since progress never reaches it, so there's
+  // nothing left to fade into).
+  const HEADLINE_FADEOUT = [3.12 / TOTAL_VH, 3.60 / TOTAL_VH];
+  const WORD_STAGGER = 0.15 / TOTAL_VH; // scroll-progress offset between each word's own fade-in start
+  const WORD_FADEIN_DUR = 0.3 / TOTAL_VH; // each word's own fade-in ramp length
+  const SUBHEAD_WINDOW = [P_INTRO_END, P_HOLD_END, 1.05, 1.05];
 
   const canvas = document.getElementById("drx-canvas");
   const ctx = canvas.getContext("2d");
@@ -106,7 +129,15 @@
   }
 
   function renderAtProgress(p) {
-    const target = Math.round(p * (FRAME_COUNT - 1));
+    let target;
+    if (p < P_INTRO_END) {
+      target = Math.round((p / P_INTRO_END) * CROSSFADE_END_FRAME);
+    } else if (p < P_HOLD_END) {
+      target = CROSSFADE_END_FRAME; // holding while the subheading fades in
+    } else {
+      const t = (p - P_HOLD_END) / (1 - P_HOLD_END);
+      target = Math.round(CROSSFADE_END_FRAME + t * (LAST_FRAME - CROSSFADE_END_FRAME));
+    }
     const idx = nearestLoaded(target);
     if (idx === -1 || idx === seq.currentIndex) return;
     drawCover(seq.images[idx]);
@@ -209,7 +240,7 @@
       // to (an explicit window.innerHeight snapshot, not the CSS 100svh
       // fallback), so this pin distance and the stage's own rendered height
       // always trace back to the same JS-read number.
-      end: () => `+=${stage.clientHeight * PIN_VH_MULTIPLIER}`,
+      end: () => `+=${stage.clientHeight * TOTAL_VH}`,
       scrub: true,
       pin: true,
       anticipatePin: 1,
