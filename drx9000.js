@@ -35,9 +35,20 @@
     if (canvas.height !== h) canvas.height = h;
   }
 
+  // The source frames are landscape (16:9-ish). On a landscape stage,
+  // cover-fit (filling both dimensions, cropping the overflow) looks right.
+  // On a portrait/mobile stage, cover would crop almost the entire width
+  // down to a tall, heavily-zoomed center sliver — most of the machine (and
+  // most of the motion happening across the frame's width) would be cropped
+  // out of view. So on a taller-than-wide stage, fit the whole frame width
+  // in instead and letterbox top/bottom, over the stage's own dark
+  // background, rather than crop it away.
   function drawCover(img) {
     const cw = canvas.width, ch = canvas.height;
-    const s = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+    const portrait = ch > cw;
+    const s = portrait
+      ? Math.min(cw / img.naturalWidth, ch / img.naturalHeight)
+      : Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
     const w = img.naturalWidth * s, h = img.naturalHeight * s;
     ctx.clearRect(0, 0, cw, ch);
     ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
