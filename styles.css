@@ -358,21 +358,6 @@ html, body {
    first hero's three lines), so .line here only supplies the shared fade
    transition — position/layout comes from .drx-copy's flex column instead
    of the grid+absolute-center pattern the first hero's .copy uses. */
-/* A soft dark vignette behind the text, independent of each line's own
-   fade — the photo/video behind this copy is sometimes light (cream walls,
-   rug), where plain text-shadow alone isn't reliable contrast. Opacity is
-   driven in drx9000.js off the headline's own fade window (the broadest of
-   the three), so it appears and disappears with the copy block instead of
-   darkening the shot for the rest of the section. */
-.drx-scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(ellipse 70% 55% at 50% 48%, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 72%);
-}
-
 .drx-copy {
   position: absolute;
   inset: 0;

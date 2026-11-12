@@ -49,7 +49,6 @@
   const stage = document.getElementById("drx-stage");
   const pinSection = document.getElementById("drx-pin-section");
   const loadingEl = document.getElementById("drx-loading-indicator");
-  const scrim = document.getElementById("drx-scrim");
   const words = Array.from(document.querySelectorAll("#drx-headline .drx-word"));
   const lines = Array.from(document.querySelectorAll("#drx-copy .line"));
 
@@ -146,20 +145,13 @@
 
   function updateCopy(p) {
     const [fc, fd] = HEADLINE_FADEOUT;
-    let headlineOpacity = 0;
     words.forEach((word, i) => {
       const a = i * WORD_STAGGER, b = a + WORD_FADEIN_DUR;
-      const o = triWindow(p, a, b, fc, fd);
-      word.style.opacity = String(o);
-      if (o > headlineOpacity) headlineOpacity = o;
+      word.style.opacity = String(triWindow(p, a, b, fc, fd));
     });
     const [sa, sb, sc, sd] = SUBHEAD_WINDOW;
     const subOpacity = triWindow(p, sa, sb, sc, sd);
     if (lines[0]) lines[0].style.opacity = String(subOpacity);
-    // Headline and subheading/button now ride two different shots (opening
-    // office scene, then the vertebrae-separation close-up), so the scrim
-    // follows whichever of the two is actually on screen.
-    if (scrim) scrim.style.opacity = String(Math.max(headlineOpacity, subOpacity));
     // Button shares the subheading's fade window and only accepts clicks
     // once mostly faded in (see .drx-cta.ready in styles.css).
     if (lines[1]) {
@@ -218,7 +210,6 @@
       l.style.position = "static";
       l.classList.add("ready");
     });
-    if (scrim) scrim.style.opacity = "1";
   }
 
   function initAnimated() {
