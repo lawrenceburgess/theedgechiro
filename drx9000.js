@@ -39,6 +39,19 @@
     return `${DESKTOP_DIR}/frame_${String(i + 1).padStart(4, "0")}.webp`;
   }
 
+  // CSS 100svh should be a stable "smallest viewport" height immune to a
+  // mobile browser's address-bar show/hide, but in practice (reported on
+  // Android Chrome, as a dead gap after Dr. Dunlap that doesn't resolve by
+  // waiting — so not a loading delay, a real sizing mismatch) it isn't
+  // reliable enough to pin a 6-screen scrub to. Setting the stage's height
+  // directly from window.innerHeight at the moments that matter (init,
+  // resize, orientation change) makes this section's own layout height and
+  // the pin's scroll distance both trace back to the same JS-read number,
+  // instead of one side trusting a CSS unit that can drift from it.
+  function setStageHeight() {
+    stage.style.height = `${window.innerHeight}px`;
+  }
+
   function sizeCanvas() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.round(stage.clientWidth * dpr);
@@ -161,6 +174,7 @@
   }
 
   function initStaticFallback() {
+    setStageHeight();
     sizeCanvas();
     const img = new Image();
     img.decoding = "async";
@@ -177,6 +191,7 @@
   }
 
   function initAnimated() {
+    setStageHeight();
     sizeCanvas();
     loadSequence();
 
@@ -190,12 +205,10 @@
     const st = ScrollTrigger.create({
       trigger: pinSection,
       start: "top top",
-      // Measuring the pin distance off the stage's own rendered height
-      // (rather than window.innerHeight) keeps it self-consistent with the
-      // CSS 100svh the stage actually uses — on mobile browsers, the two can
-      // momentarily disagree while the address-bar/toolbar shows or hides,
-      // which otherwise shows up as a dead gap or a pin that starts later
-      // than it should.
+      // stage.clientHeight now equals whatever setStageHeight() last set it
+      // to (an explicit window.innerHeight snapshot, not the CSS 100svh
+      // fallback), so this pin distance and the stage's own rendered height
+      // always trace back to the same JS-read number.
       end: () => `+=${stage.clientHeight * PIN_VH_MULTIPLIER}`,
       scrub: true,
       pin: true,
@@ -218,10 +231,20 @@
       document.fonts.ready.then(() => ScrollTrigger.refresh());
     }
 
+    // Mobile browsers (reported on Android Chrome) fire resize events for
+    // the address bar hiding/showing as you scroll — a *height*-only change.
+    // Reacting to those re-measures everything mid-scroll against a
+    // transient viewport size, which is a well-known way to corrupt a
+    // pinned ScrollTrigger's start/end. Only real resizes (width changes:
+    // actual window resize, orientation change) should trigger a re-layout.
+    let lastWidth = window.innerWidth;
     let resizeRaf = null;
     window.addEventListener("resize", () => {
+      if (window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
       resizeRaf = requestAnimationFrame(() => {
+        setStageHeight();
         sizeCanvas();
         renderAtProgress(currentScrollProgress());
         ScrollTrigger.refresh();
